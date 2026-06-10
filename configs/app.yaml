@@ -1,0 +1,15 @@
+api:
+  host: "0.0.0.0"
+  port: 8000
+models:
+  embedding:
+    name: "BAAI/bge-m3"
+    device: "cuda"
+  llm: ~
+data:
+  raw_dir: "data/raw"
+  faiss_index_path: "data/faiss_index"
+  chunker:
+    type: "recursive"
+    chunk_size: 512
+    chunk_overlap: 50

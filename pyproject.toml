@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "documind"
+version = "0.1.0"
+description = "Intelligent Technical Documentation Assistant"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2",
+    "pyyaml",
+    "sentence-transformers",
+    "langchain",
+    "langchain-community",
+    "langchain-text-splitters",
+    "faiss-cpu",
+    "numpy"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "black"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
