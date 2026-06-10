@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer
 from src.core.embedder.base import BaseEmbedder
-from src.config.schemas import EmbeddingModelConfig
+from src.config.schemas.app import EmbeddingModelConfig
 
 
 class SentenceTransformerEmbedder(BaseEmbedder):

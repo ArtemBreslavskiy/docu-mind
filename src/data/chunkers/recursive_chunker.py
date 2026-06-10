@@ -1,7 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src.core.schemas import Document, Chunk
 from src.data.chunkers.base import BaseChunker
-from src.config.schemas import ChunkerConfig
+from src.config.schemas.pipeline import ChunkerConfig
 
 
 class RecursiveChunker(BaseChunker):

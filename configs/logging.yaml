@@ -1,0 +1,25 @@
+default:
+  filename_pattern: "%Y%m%d_%H%M%S.log"
+  use_colors: true
+  console: true
+  console_level: "INFO"
+  file: true
+  file_level: "DEBUG"
+  max_bytes: 10485760
+  backup_count: 5
+  fmt: "[%(asctime)s.%(msecs)03d] - %(module)10s:%(lineno)-3d %(levelname)-7s - %(message)s"
+  datefmt: "%Y-%m-%d %H:%M:%S"
+  encoding: 'utf-8'
+
+types:
+  app:
+    name: "segmentation_bg_train"
+    filename_pattern: "train_%Y%m%d_%H%M%S.log"
+    console_level: "INFO"
+    file_level: "DEBUG"
+
+  agent:
+    name: "segmentation_bg_train"
+    filename_pattern: "train_%Y%m%d_%H%M%S.log"
+    console_level: "INFO"
+    file_level: "DEBUG"

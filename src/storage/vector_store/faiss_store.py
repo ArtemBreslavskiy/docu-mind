@@ -8,9 +8,11 @@ from src.core.schemas import Chunk
 
 
 class FAISSStore(BaseVectorStore):
-    def __init__(self, index_path: Union[str, Path]):
-        self.index_path = Path(index_path)
-        self.json_path = self.index_path.with_suffix(".json")
+    def __init__(self, log_dir: Union[str, Path]):
+        self.log_dir = Path(log_dir)
+        self.store_path = self.log_dir / "store"
+        self.json_path = self.log_dir / "chunks.json"
+
         self.index: Optional[faiss.Index] = None
         self.chunks: list[Chunk] = []
 
@@ -42,16 +44,15 @@ class FAISSStore(BaseVectorStore):
         return results
 
     def _save(self):
-        self.index_path.parent.mkdir(parents=True, exist_ok=True)
-
-        faiss.write_index(self.index, str(self.index_path))
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        faiss.write_index(self.index, str(self.store_path))
 
         chunk_data = [chunk.model_dump() for chunk in self.chunks]
         with open(self.json_path, "w", encoding="utf-8") as f:
             json.dump(chunk_data, f, ensure_ascii=False, indent=2)
 
     def _load(self):
-        self.index = faiss.read_index(str(self.index_path))
+        self.index = faiss.read_index(str(self.store_path))
 
         with open(self.json_path, "r", encoding="utf-8") as f:
             chunks_data = json.load(f)

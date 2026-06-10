@@ -1,0 +1,8 @@
+chunker:
+  type: "recursive"
+  chunk_size: 512
+  chunk_overlap: 65
+
+retriever:
+  type: "dense"
+  top_k: 5

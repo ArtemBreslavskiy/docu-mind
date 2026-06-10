@@ -5,7 +5,7 @@ from langchain_core.documents import Document as LCDocument
 
 class Document(BaseModel):
     page_content: str
-    metadata: Dict[str, any]
+    metadata: dict[str, any]
 
     def to_langchain_document(self) -> LCDocument:
         return LCDocument(page_content=self.page_content, metadata=self.metadata)
