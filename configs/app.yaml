@@ -6,7 +6,18 @@ models:
   embedding:
     name: "BAAI/bge-m3"
     device: "cuda"
-  llm: ~
+  llm:
+    provider: "ollama"
+    model: "llama3.2:3b"
+    temperature: 0.1
+    base_url: "http://localhost:11434"
+    max_tokens: 512
+    system_prompt:
+      "You are a technical documentation assistant.\n"
+      "Answer the user's question based ONLY on the provided context.\n"
+      "If the answer is not found in the context, say \"I don't have this information in the provided documents.\"\n"
+      "Do not make up any facts or use your own knowledge.\n"
+      "Answer in the same language as the user's question."
 
 data:
   storage:
