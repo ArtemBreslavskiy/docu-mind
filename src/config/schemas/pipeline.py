@@ -3,7 +3,7 @@ from typing import Literal
 
 
 class ChunkerConfig(BaseModel):
-    type: Literal["recursive", "semantic"]
+    type: Literal["recursive", "semantic"] = "recursive"
     chunk_size: int = Field(512, ge=128, le=4096)
     chunk_overlap: int = Field(64, ge=0, le=1024)
     separators: list[str] = ["\n\n", "\n", ". ", " ", ""]
@@ -15,5 +15,5 @@ class RetrieverConfig(BaseModel):
 
 
 class PipelineConfig(BaseModel):
-    chunker: ChunkerConfig = ChunkerConfig()
-    retriever: RetrieverConfig = RetrieverConfig()
+    chunker: ChunkerConfig = Field(default_factory=ChunkerConfig)
+    retriever: RetrieverConfig = Field(default_factory=RetrieverConfig)

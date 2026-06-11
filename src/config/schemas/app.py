@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 class ApiConfig(BaseModel):
@@ -17,8 +17,8 @@ class LLMConfig(BaseModel):
 
 
 class ModelsConfig(BaseModel):
-    embedding: EmbeddingModelConfig
-    llm: LLMConfig
+    embedding: EmbeddingModelConfig = Field(default_factory=EmbeddingModelConfig)
+    llm: Optional[LLMConfig] = None
 
 
 class StorageConfig(BaseModel):
@@ -30,11 +30,11 @@ class LoaderConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    storage: StorageConfig
-    loader: LoaderConfig
+    storage: StorageConfig = Field(default_factory=StorageConfig)
+    loader: LoaderConfig = Field(default_factory=LoaderConfig)
 
 
 class AppConfig(BaseModel):
-    api: ApiConfig
-    models: ModelsConfig
-    data: DataConfig
+    api: ApiConfig = Field(default_factory=ApiConfig)
+    models: ModelsConfig = Field(default_factory=ModelsConfig)
+    data: DataConfig = Field(default_factory=DataConfig)
