@@ -1,3 +1,4 @@
+from pathlib import Path
 from src.config.loader import load_app_config, load_pipeline_config
 from src.core.embedder.sentence_transformer_embedder import SentenceTransformerEmbedder
 from src.data.chunkers.chunker_factory import create_chunker
@@ -13,6 +14,13 @@ def index_documents():
 
     loader = create_loader(app_config.data.loader)
     raw_docs = loader.load(paths.RAW)
+
+    paths.TEXTS.mkdir(parents=True, exist_ok=True)
+    for doc in raw_docs:
+        source_name = Path(doc.metadata.get("source", "unknown")).stem
+        txt_path = paths.TEXTS / f"{source_name}.txt"
+        txt_path.write_text(doc.page_content, encoding="utf-8")
+        doc.metadata["txt_path"] = str(txt_path)
 
     chunker = create_chunker(pipeline_config.chunker)
     chunks = chunker.split(raw_docs)

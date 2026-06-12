@@ -11,9 +11,11 @@ class SearchInput(BaseModel):
 
 class SearchDocumentationTool(BaseTool):
     name: str = "search_documentation"
-    description: str = ("Search the loaded technical documentation to find information about a "
-                        "specific topic. Use this whenever you need factual details, definitions, "
-                        "or explanations that might be covered in the docs.")
+    description: str = (
+        "Search the loaded technical documentation to find information about a "
+        "specific topic. Use this whenever you need factual details, definitions, "
+        "or explanations that might be covered in the docs."
+    )
     args_schema: BaseModel = SearchInput
     retriever: BaseRetriever
 

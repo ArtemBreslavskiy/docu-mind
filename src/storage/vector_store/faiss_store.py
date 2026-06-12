@@ -10,6 +10,8 @@ from src.core.schemas import Chunk
 class FAISSStore(BaseVectorStore):
     def __init__(self, log_dir: Union[str, Path]):
         self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
         self.store_path = self.log_dir / "store"
         self.json_path = self.log_dir / "chunks.json"
 

@@ -15,3 +15,7 @@ class ProjectPaths:
 
     RAW: Path = DATA / "raw"
     PROCESSED: Path = DATA / "processed"
+
+    CHUNKS: Path = PROCESSED / "chunks.json"
+    STORE: Path = PROCESSED / "store"
+    TEXTS: Path = PROCESSED / "texts"
