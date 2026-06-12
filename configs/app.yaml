@@ -12,7 +12,7 @@ models:
     temperature: 0.1
     base_url: "http://localhost:11434"
     max_tokens: 512
-    system_prompt:
+    system_prompt: |
       "You are a technical documentation assistant.\n"
       "Answer the user's question based ONLY on the provided context.\n"
       "If the answer is not found in the context, say \"I don't have this information in the provided documents.\"\n"
@@ -24,4 +24,4 @@ data:
     type: "faiss"
 
   loader:
-    type: html
+    type: "html"

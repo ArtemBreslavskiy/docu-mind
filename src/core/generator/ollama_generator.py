@@ -10,7 +10,7 @@ class OllamaGenerator(BaseGenerator):
         self.client = ollama.Client(host=config.base_url)
 
     def generate(self, question: str, context_chunks: list[Chunk]) -> str:
-        context = "\n\n---\n\n".join([chunk.context for chunk in context_chunks])
+        context = "\n\n---\n\n".join([chunk.content for chunk in context_chunks])
         user_prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer: "
 
         response = self.client.chat(
