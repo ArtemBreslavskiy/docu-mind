@@ -2,7 +2,6 @@ import asyncio
 from pathlib import Path
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
-from paths.project_paths import ProjectPaths
 
 
 class FetchFullDocumentInput(BaseModel):
