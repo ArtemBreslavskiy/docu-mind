@@ -6,3 +6,4 @@ chunker:
 retriever:
   type: "dense"
   top_k: 5
+  filter_oversample_factor: 4

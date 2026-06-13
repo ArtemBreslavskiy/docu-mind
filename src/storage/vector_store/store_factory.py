@@ -8,6 +8,6 @@ def create_vector_store(config: StorageConfig) -> BaseVectorStore:
     paths = ProjectPaths()
 
     if config.type == "faiss":
-        return FAISSStore(paths.PROCESSED)
+        return FAISSStore(log_dir=paths.PROCESSED)
     else:
         raise ValueError(f"Unknown vector store type: {config.type}")

@@ -45,6 +45,27 @@ class FAISSStore(BaseVectorStore):
                 results.append((self.chunks[idx], float(score)))
         return results
 
+    def get_metadata_keys(self, max_examples: int = 30) -> dict[str, dict[str, list[str] | int]]:
+        if not self.chunks:
+            self._load()
+        keys_info = {}
+        for chunk in self.chunks:
+            for key, value in chunk.metadata.items():
+                if key not in keys_info:
+                    keys_info[key] = set()
+                keys_info[key].add(str(value))
+
+        result = {}
+        for key, values in keys_info.items():
+            sorted_list = sorted(list(values))
+            length = len(sorted_list)
+            result[key] = {
+                "examples": sorted_list[:max_examples],
+                "total": length
+            }
+
+        return result
+
     def _save(self):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         faiss.write_index(self.index, str(self.store_path))

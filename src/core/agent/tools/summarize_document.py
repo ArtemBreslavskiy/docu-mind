@@ -21,10 +21,10 @@ class SummarizeDocumentTool(BaseTool):
 
     def _run(self, text: str, max_length: int) -> str:
         paths = ProjectPaths()
-        app_config = load_app_config(paths.APP_CONFIG)
+        app_config = load_app_config(path=paths.APP_CONFIG)
         model = create_model(app_config.models.llm.get_summarize_config())
 
-        return model.summarize(text, max_length)
+        return model.summarize(text=text, max_length=max_length)
 
     async def _arun(self, text: str, max_length: int) -> str:
         return await asyncio.to_thread(self._run, text, max_length)

@@ -1,10 +1,10 @@
 import asyncio
 from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from paths.project_paths import ProjectPaths
 
 
-class ListDocumentsInput(BaseModel):
+class NoInput(BaseModel):
     pass
 
 
@@ -15,7 +15,7 @@ class ListDocumentsTool(BaseTool):
         "Use this when you need to know what documents are available or what topics are covered. "
         "This tool takes no arguments."
     )
-    args_schema: BaseModel = ListDocumentsInput
+    args_schema: BaseModel = NoInput
 
     def _run(self) -> str:
         paths = ProjectPaths()

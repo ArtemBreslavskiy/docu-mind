@@ -7,6 +7,6 @@ from src.storage.vector_store.base import BaseVectorStore
 
 def create_retriever(config: RetrieverConfig, embedder: BaseEmbedder, store: BaseVectorStore) -> BaseRetriever:
     if config.type == "dense":
-        return DenseRetriever(embedder, store)
+        return DenseRetriever(config=config, embedder=embedder, store=store)
     else:
         raise ValueError(f"Unknown retriever type: {config.type}")

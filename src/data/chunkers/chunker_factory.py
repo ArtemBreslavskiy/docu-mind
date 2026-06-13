@@ -5,6 +5,6 @@ from src.config.schemas.pipeline import ChunkerConfig
 
 def create_chunker(config: ChunkerConfig) -> BaseChunker:
     if config.type == "recursive":
-        return RecursiveChunker(config)
+        return RecursiveChunker(config=config)
     else:
         raise ValueError(f"Unknown chunker type: {config.type}")

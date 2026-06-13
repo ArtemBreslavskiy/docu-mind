@@ -12,8 +12,8 @@ def index_documents():
     app_config = load_app_config(paths.APP_CONFIG)
     pipeline_config = load_pipeline_config(paths.PIPELINE_CONFIG)
 
-    loader = create_loader(app_config.data.loader)
-    raw_docs = loader.load(paths.RAW)
+    loader = create_loader(config=app_config.data.loader)
+    raw_docs = loader.load(raw_dir=paths.RAW)
 
     paths.TEXTS.mkdir(parents=True, exist_ok=True)
     for doc in raw_docs:
@@ -22,14 +22,14 @@ def index_documents():
         txt_path.write_text(doc.page_content, encoding="utf-8")
         doc.metadata["txt_path"] = str(txt_path)
 
-    chunker = create_chunker(pipeline_config.chunker)
-    chunks = chunker.split(raw_docs)
+    chunker = create_chunker(config=pipeline_config.chunker)
+    chunks = chunker.split(documents=raw_docs)
 
-    embedder = SentenceTransformerEmbedder(app_config.models.embedding)
+    embedder = SentenceTransformerEmbedder(config=app_config.models.embedding)
     texts = [chunk.content for chunk in chunks]
-    embeddings = embedder.embed(texts)
+    embeddings = embedder.embed(texts=texts)
 
-    store = create_vector_store(app_config.data.storage)
+    store = create_vector_store(config=app_config.data.storage)
     store.add(chunks, embeddings)
 
     print(f"✅ Index created: {len(chunks)} chunks")
