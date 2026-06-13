@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from src.core.retriever.base import BaseRetriever
 
 
-class SearchByJSONFilterInput(BaseModel):
+class SearchChunksByJSONFilterInput(BaseModel):
     query: str = Field(description="Search query text (natural language)")
     filter_json: str = Field(
         description=(
@@ -24,14 +24,14 @@ class SearchByJSONFilterInput(BaseModel):
     k: int = Field(5, ge=1, le=30, description="Number of chunks to retrieve after filtering")
 
 
-class SearchByJSONFilterTool(BaseTool):
+class SearchChunksByJSONFilterTool(BaseTool):
     name: str = "search_by_json_filter"
     description: str = (
         "Search documents and return only chunks matching complex metadata conditions. "
         "Conditions are specified as a JSON string with 'and'/'or' logic. "
         "Use list_metadata first to see available fields and their example values."
     )
-    args_schema: BaseModel = SearchByJSONFilterInput
+    args_schema: BaseModel = SearchChunksByJSONFilterInput
     retriever: BaseRetriever
 
     def _run(self, query: str, filter_json: str, k: int = 5) -> str:

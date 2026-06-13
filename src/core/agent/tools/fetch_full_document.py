@@ -14,7 +14,7 @@ class FetchFullDocumentInput(BaseModel):
     )
 
 
-class FetchFullDocument(BaseTool):
+class FetchFullDocumentTool(BaseTool):
     name: str = "fetch_full_document"
     description: str = (
         "Retrieve the full text of a document from a text file. "

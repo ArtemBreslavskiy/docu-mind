@@ -1,0 +1,11 @@
+agent:
+  max_iterations: 5
+  tools:
+    - ask_clarification
+    - fetch_full_document
+    - list_documents
+    - list_metadata
+    - search_chunks
+    - search_chunks_by_field
+    - search_chunks_by_json_filter
+    - summarize_document
