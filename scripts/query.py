@@ -2,7 +2,7 @@ from src.config.loader import load_app_config, load_pipeline_config
 from src.core.embedder.sentence_transformer_embedder import SentenceTransformerEmbedder
 from src.storage.vector_store.store_factory import create_vector_store
 from src.core.retriever.retriever_factory import create_retriever
-from src.core.generator.generator_factory import create_generator
+from src.core.models.models_factory import create_model
 from paths.project_paths import ProjectPaths
 
 
@@ -14,7 +14,7 @@ def query():
     embedder = SentenceTransformerEmbedder(app_config.models.embedding)
     store = create_vector_store(app_config.data.storage)
     retriever = create_retriever(pipeline_config.retriever, embedder, store)
-    generator = create_generator(app_config.models.llm)
+    model = create_model(app_config.models.llm.model)
 
     while True:
         question = input("\nEnter a question (or 'exit' to exit): ")
@@ -24,7 +24,7 @@ def query():
         results = retriever.retrieve(question, 5)
         chunks = [res.chunk for res in results]
 
-        answer = generator.generate(question, chunks)
+        answer = model.generate(question, chunks)
 
         print("\nAnswer:\n", answer)
         print("\nSources:")
