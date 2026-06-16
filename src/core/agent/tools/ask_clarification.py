@@ -1,6 +1,7 @@
 import asyncio
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
+from src.config.schemas.agent import ToolConfig
 
 
 class AskClarificationInput(BaseModel):
@@ -9,11 +10,8 @@ class AskClarificationInput(BaseModel):
 
 class AskClarificationTool(BaseTool):
     name: str = "ask_clarification"
-    description: str = (
-        "Ask the user a clarifying question when the original query is ambiguous or needs more detail. "
-        "Use this only when absolutely necessary."
-    )
-    args_schema: BaseModel = AskClarificationInput
+    description: str
+    args_schema: type[BaseModel] = AskClarificationInput
 
     def _run(self, question: str) -> str:
         return f"CLARIFICATION: {question}"

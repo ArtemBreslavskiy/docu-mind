@@ -1,5 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Union, Annotated
+from src.config.schemas.clients import (
+    OllamaClientConfig,
+    OpenAiClientConfig,
+    GroqClientConfig,
+    GoogleClientConfig,
+)
 
 
 class ApiConfig(BaseModel):
@@ -12,16 +18,8 @@ class EmbeddingModelConfig(BaseModel):
     device: str = Field("cuda", pattern=r"^(cpu|cuda(:\d+)?)$")
 
 
-class ModelConfig(BaseModel):
-    provider: Literal["ollama", "openai"] = "ollama"
-    model: str = "llama3.2:3b"
-    temperature: float = Field(0.1, ge=0.0, le=2.0)
-    base_url: str = "http://localhost:11434"
-    max_tokens: int = Field(512, ge=1, le=4096)
-
-
 class PromptsConfig(BaseModel):
-    generate: str = (
+    answer_with_context: str = (
         "You are a technical documentation assistant.\n"
         "Answer the user's question based ONLY on the provided context.\n"
         "If the answer is not found in the context, say \"I don't have this information in the provided documents.\"\n"
@@ -36,14 +34,9 @@ class PromptsConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    model: ModelConfig = Field(default_factory=ModelConfig)
-    summarize_model: ModelConfig | None
+    client: Union[OllamaClientConfig, OpenAiClientConfig, GoogleClientConfig, GroqClientConfig] = (
+        Field(discriminator="provider"))
     prompts: PromptsConfig = Field(default_factory=PromptsConfig)
-
-    def get_summarize_config(self) -> ModelConfig:
-        if self.summarize_model is not None:
-            return self.summarize_model
-        return self.model
 
 
 class ModelsConfig(BaseModel):

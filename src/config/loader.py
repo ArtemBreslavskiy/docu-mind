@@ -18,7 +18,7 @@ def load_app_config(path: str | Path) -> AppConfig:
     return AppConfig(**raw)
 
 
-def load_logger_config(path: str | Path) -> LoggingConfig:
+def load_logging_config(path: str | Path) -> LoggingConfig:
     with open(path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     return LoggingConfig(**raw)

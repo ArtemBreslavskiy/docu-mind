@@ -4,6 +4,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Union
 import yaml
+from src.config.loader import load_logging_config
+from paths.project_paths import ProjectPaths
 
 _config = None
 _log_dir = None
@@ -16,8 +18,8 @@ def _setup_logger(type_name: str):
         raise RuntimeError("Call configure_loggers() first")
 
     params = {
-        **_config["logs"]["default"],
-        **_config["logs"]["types"].get(type_name, {}),
+        **_config["default"],
+        **_config["types"].get(type_name, {}),
     }
     logger_name = params.get("name", f"segmentation_bg.{type_name}")
     logger = logging.getLogger(logger_name)
@@ -105,18 +107,12 @@ def configure_loggers(
 
 def get_logger(type_name: str):
     if not _initialized:
-        current_dir = Path(__file__).parent.parent
-        config_path = current_dir / "config.yaml"
-        log_dir = current_dir / "logs"
-
-        configure_loggers(config_path, log_dir)
+        paths = ProjectPaths()
+        configure_loggers(paths.LOGGING_CONFIG, paths.LOGS)
     return _setup_logger(type_name)
 
 
 if __name__ == "__main__":
     if not _initialized:
-        current_dir = Path(__file__).parent.parent
-        config_path = current_dir / "config.yaml"
-        log_dir = current_dir / "logs"
-
-        configure_loggers(config_path, log_dir)
+        paths = ProjectPaths()
+        configure_loggers(paths.LOGGING_CONFIG, paths.LOGS)

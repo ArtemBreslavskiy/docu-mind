@@ -45,7 +45,7 @@ class FAISSStore(BaseVectorStore):
                 results.append((self.chunks[idx], float(score)))
         return results
 
-    def get_metadata_keys(self, max_examples: int = 30) -> dict[str, dict[str, list[str] | int]]:
+    def get_metadata(self) -> dict[str, dict[str, list[str] | int]]:
         if not self.chunks:
             self._load()
         keys_info = {}
@@ -60,7 +60,7 @@ class FAISSStore(BaseVectorStore):
             sorted_list = sorted(list(values))
             length = len(sorted_list)
             result[key] = {
-                "examples": sorted_list[:max_examples],
+                "examples": sorted_list,
                 "total": length
             }
 

@@ -8,31 +8,24 @@ models:
     device: "cuda"
 
   llm:
-    model:
+    client:
       provider: "ollama"
-      name: "llama3.2:3b"
-      temperature: 0.1
-      base_url: "http://localhost:11434"
-      max_tokens: 512
-
-    summarize_model:
-      provider: "ollama"
-      name: "llama3.2:3b"
-      temperature: 0.1
+      model: "gpt-oss:120b-cloud"
+      temperature: 0.0
       base_url: "http://localhost:11434"
       max_tokens: 512
 
     prompts:
-      generate: |
-        "You are a technical documentation assistant.\n"
-        "Answer the user's question based ONLY on the provided context.\n"
-        "If the answer is not found in the context, say \"I don't have this information in the provided documents.\"\n"
-        "Do not make up any facts or use your own knowledge.\n"
-        "Answer in the same language as the user's question."
+      answer_with_context: |
+        You are a technical documentation assistant.
+        Answer the user's question based ONLY on the provided context.
+        If the answer is not found in the context, say "I don't have this information in the provided documents."
+        Do not make up any facts or use your own knowledge.
+        Answer in the same language as the user's question.
 
       summarize: |
-        "Summarize the following text in about {max_length} words. "
-        "Keep all technical details, code examples, and key facts.\n\n{text}"
+        Summarize the following text in about {max_length} words.
+        Keep all technical details, code examples, and key facts.\n\n{text}
 
 data:
   storage:

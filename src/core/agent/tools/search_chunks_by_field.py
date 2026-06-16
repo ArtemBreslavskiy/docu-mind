@@ -1,7 +1,8 @@
 import asyncio
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 from src.core.retriever.base import BaseRetriever
+from src.config.schemas.agent import ToolConfig
 
 
 class SearchChunksByFieldInput(BaseModel):
@@ -14,11 +15,8 @@ class SearchChunksByFieldInput(BaseModel):
 
 class SearchChunksByFieldTool(BaseTool):
     name: str = "search_chunks_by_field"
-    description: str = (
-        "Search documents and return only those chunks where the specified metadata field "
-        "matches the given value. Use list_metadata first to see available fields and example values."
-    )
-    args_schema: BaseModel = SearchChunksByFieldInput
+    description: str
+    args_schema: type[BaseModel] = SearchChunksByFieldInput
     retriever: BaseRetriever
 
     def _run(self, query: str, filter_key: str, filter_value: str, k: int = 5) -> str:

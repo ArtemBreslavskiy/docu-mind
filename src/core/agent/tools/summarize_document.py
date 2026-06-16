@@ -1,9 +1,11 @@
 import asyncio
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
-from src.core.models.models_factory import create_model
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import SystemMessage
 from src.config.loader import load_app_config
 from paths.project_paths import ProjectPaths
+from src.config.schemas.agent import ToolConfig
 
 
 class SummarizeDocumentInput(BaseModel):
@@ -13,18 +15,18 @@ class SummarizeDocumentInput(BaseModel):
 
 class SummarizeDocumentTool(BaseTool):
     name: str = "summarize_document"
-    description: str = (
-        "Summarize a long document into a shorter version while preserving key facts. "
-        "Use this when a document is too large to fit into context or when the user asks for a summary."
-    )
-    args_schema: BaseModel = SummarizeDocumentInput
+    description: str
+    args_schema: type[BaseModel] = SummarizeDocumentInput
+    llm: BaseChatModel
 
     def _run(self, text: str, max_length: int) -> str:
         paths = ProjectPaths()
         app_config = load_app_config(path=paths.APP_CONFIG)
-        model = create_model(app_config.models.llm.get_summarize_config())
+        system_msg = SystemMessage(
+            content=app_config.models.llm.prompts.summarize.format(max_length=max_length, text=text))
 
-        return model.summarize(text=text, max_length=max_length)
+        response = self.llm.invoke([system_msg])
+        return response.content.strip()
 
     async def _arun(self, text: str, max_length: int) -> str:
         return await asyncio.to_thread(self._run, text, max_length)

@@ -13,13 +13,13 @@ default:
 
 types:
   app:
-    name: "segmentation_bg_train"
+    name: "app_logger"
     filename_pattern: "train_%Y%m%d_%H%M%S.log"
     console_level: "INFO"
     file_level: "DEBUG"
 
   agent:
-    name: "segmentation_bg_train"
+    name: "agent_logger"
     filename_pattern: "train_%Y%m%d_%H%M%S.log"
     console_level: "INFO"
     file_level: "DEBUG"

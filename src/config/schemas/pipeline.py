@@ -12,7 +12,7 @@ class ChunkerConfig(BaseModel):
 class RetrieverConfig(BaseModel):
     type: Literal["dense", "hybrid"] = "dense"
     top_k: int = Field(5, ge=1, le=100)
-    retrieval_oversample_factor: int = Field(
+    filter_oversample_factor: int = Field(
         4, 
         ge=2,
         le=10,

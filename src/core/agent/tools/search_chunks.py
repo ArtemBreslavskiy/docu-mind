@@ -1,7 +1,8 @@
 import asyncio
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 from src.core.retriever.base import BaseRetriever
+from src.config.schemas.agent import ToolConfig
 
 
 class SearchChunksInput(BaseModel):
@@ -10,13 +11,9 @@ class SearchChunksInput(BaseModel):
 
 
 class SearchChunksTool(BaseTool):
-    name: str = "search_documentation"
-    description: str = (
-        "Search the loaded technical documentation to find information about a "
-        "specific topic. Use this whenever you need factual details, definitions, "
-        "or explanations that might be covered in the docs."
-    )
-    args_schema: BaseModel = SearchChunksInput
+    name: str = "search_chunks"
+    description: str
+    args_schema: type[BaseModel] = SearchChunksInput
     retriever: BaseRetriever
 
     def _run(self, query: str, k: int = 5) -> str:

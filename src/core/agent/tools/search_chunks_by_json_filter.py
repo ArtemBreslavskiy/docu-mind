@@ -1,7 +1,9 @@
 import asyncio
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
+import json
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field, field_validator
 from src.core.retriever.base import BaseRetriever
+from src.config.schemas.agent import ToolConfig
 
 
 class SearchChunksByJSONFilterInput(BaseModel):
@@ -23,15 +25,18 @@ class SearchChunksByJSONFilterInput(BaseModel):
     )
     k: int = Field(5, ge=1, le=30, description="Number of chunks to retrieve after filtering")
 
+    @field_validator("filter_json", mode="before")
+    @classmethod
+    def coerce_to_string(cls, v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return v
+
 
 class SearchChunksByJSONFilterTool(BaseTool):
-    name: str = "search_by_json_filter"
-    description: str = (
-        "Search documents and return only chunks matching complex metadata conditions. "
-        "Conditions are specified as a JSON string with 'and'/'or' logic. "
-        "Use list_metadata first to see available fields and their example values."
-    )
-    args_schema: BaseModel = SearchChunksByJSONFilterInput
+    name: str = "search_chunks_by_json_filter"
+    description: str
+    args_schema: type[BaseModel] = SearchChunksByJSONFilterInput
     retriever: BaseRetriever
 
     def _run(self, query: str, filter_json: str, k: int = 5) -> str:

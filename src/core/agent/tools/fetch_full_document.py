@@ -1,7 +1,8 @@
 import asyncio
 from pathlib import Path
-from langchain.tools import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
+from src.config.schemas.agent import ToolConfig
 
 
 class FetchFullDocumentInput(BaseModel):
@@ -16,13 +17,8 @@ class FetchFullDocumentInput(BaseModel):
 
 class FetchFullDocumentTool(BaseTool):
     name: str = "fetch_full_document"
-    description: str = (
-        "Retrieve the full text of a document from a text file. "
-        "Use this when the chunks from search_documentation are insufficient, "
-        "or when you need the complete context of a specific file. "
-        "The file_path should come from the 'txt_path' metadata of a search result."
-    )
-    args_schema: BaseModel = FetchFullDocumentInput
+    description: str
+    args_schema: type[BaseModel] = FetchFullDocumentInput
 
     def _run(self, file_path: str, max_chars: int = 50000) -> str:
         path = Path(file_path)

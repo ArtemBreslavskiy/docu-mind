@@ -1,7 +1,8 @@
 import asyncio
-from langchain.tools import BaseTool
-from pydantic import BaseModel
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field
 from paths.project_paths import ProjectPaths
+from src.config.schemas.agent import ToolConfig
 
 
 class NoInput(BaseModel):
@@ -10,12 +11,8 @@ class NoInput(BaseModel):
 
 class ListDocumentsTool(BaseTool):
     name: str = "list_documents"
-    description: str = (
-        "List all available documents (text files) in the knowledge base. "
-        "Use this when you need to know what documents are available or what topics are covered. "
-        "This tool takes no arguments."
-    )
-    args_schema: BaseModel = NoInput
+    description: str
+    args_schema: type[BaseModel] = NoInput
 
     def _run(self) -> str:
         paths = ProjectPaths()
