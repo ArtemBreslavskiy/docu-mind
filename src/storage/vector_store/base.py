@@ -12,5 +12,5 @@ class BaseVectorStore(ABC):
         ...
 
     @abstractmethod
-    def get_metadata(self, max_examples: int = 30) -> dict[str, list[str]]:
+    def list_metadata(self) -> dict[str, list[str]]:
         ...

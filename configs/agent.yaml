@@ -1,3 +1,6 @@
+max_iterations: 10
+json_parsing: true
+
 prompts:
   system: |
     You are a documentation search assistant. You have NO knowledge of your own.
@@ -146,6 +149,3 @@ tools:
       explicitly asks for a summary or when a retrieved text is excessively long
       (> 500 words) and needs to be condensed. Do not overuse this tool.
       Provide the full text to be summarised and the target length in words.
-
-max_iterations: 10
-json_parsing: true

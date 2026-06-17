@@ -1,3 +1,4 @@
+from tqdm import tqdm
 from pathlib import Path
 from src.config.loader import load_app_config, load_pipeline_config
 from src.core.embedder.sentence_transformer_embedder import SentenceTransformerEmbedder
@@ -5,6 +6,7 @@ from src.data.chunkers.chunker_factory import create_chunker
 from src.data.loaders.loader_factory import create_loader
 from src.storage.vector_store.store_factory import create_vector_store
 from paths.project_paths import ProjectPaths
+from src.logger.logger_setup import get_logger
 
 
 def index_documents():
@@ -12,8 +14,13 @@ def index_documents():
     app_config = load_app_config(paths.APP_CONFIG)
     pipeline_config = load_pipeline_config(paths.PIPELINE_CONFIG)
 
-    loader = create_loader(config=app_config.data.loader)
-    raw_docs = loader.load(raw_dir=paths.RAW)
+    logger = get_logger("pipeline")
+    logger.info("=== Document indexing started ===")
+
+    logger.info("Loading documents from %s", paths.RAW)
+    loader = create_loader(config=app_config.data.loader, logger=logger)
+    raw_docs = loader.load(raw_dir=paths.RAW, show_progress_bar=True)
+    logger.info("Loaded %d documents", len(raw_docs))
 
     paths.TEXTS.mkdir(parents=True, exist_ok=True)
     for doc in raw_docs:
@@ -21,18 +28,22 @@ def index_documents():
         txt_path = paths.TEXTS / f"{source_name}.txt"
         txt_path.write_text(doc.page_content, encoding="utf-8")
         doc.metadata["txt_path"] = str(txt_path)
+    logger.info("Text copies saved to %s", paths.TEXTS)
 
     chunker = create_chunker(config=pipeline_config.chunker)
     chunks = chunker.split(documents=raw_docs)
+    logger.info("Created %d chunks", len(chunks))
 
     embedder = SentenceTransformerEmbedder(config=app_config.models.embedding)
     texts = [chunk.content for chunk in chunks]
-    embeddings = embedder.embed(texts=texts)
+    logger.info("Generating embeddings for %d chunks...", len(texts))
+    embeddings = embedder.embed(texts=texts, show_progress_bar=True)
+    logger.info("Embeddings generated")
 
     store = create_vector_store(config=app_config.data.storage)
+    logger.info("Saving chunks to vector store...")
     store.add(chunks, embeddings)
-
-    print(f"✅ Index created: {len(chunks)} chunks")
+    logger.info("Index creation completed. Total chunks: %d", len(chunks))
 
 
 if __name__ == "__main__":

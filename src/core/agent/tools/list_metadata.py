@@ -16,7 +16,7 @@ class ListMetadataTool(BaseTool):
     store: BaseVectorStore
 
     def _run(self) -> str:
-        metadata = self.store.get_metadata()
+        metadata = self.store.list_metadata()
         if not metadata:
             return "No metadata available."
 

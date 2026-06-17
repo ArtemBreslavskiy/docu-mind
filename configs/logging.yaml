@@ -12,14 +12,14 @@ default:
   encoding: 'utf-8'
 
 types:
-  app:
-    name: "app_logger"
+  agent:
+    name: "agent_logger"
     filename_pattern: "train_%Y%m%d_%H%M%S.log"
     console_level: "INFO"
     file_level: "DEBUG"
 
-  agent:
-    name: "agent_logger"
+  pipeline:
+    name: "pipeline_logger"
     filename_pattern: "train_%Y%m%d_%H%M%S.log"
     console_level: "INFO"
     file_level: "DEBUG"
