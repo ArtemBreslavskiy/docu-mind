@@ -1,5 +1,8 @@
+init:
+  type: "custom"
+  json_parsing: true
+
 max_iterations: 10
-json_parsing: true
 
 prompts:
   system: |

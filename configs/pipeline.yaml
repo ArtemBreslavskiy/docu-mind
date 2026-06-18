@@ -1,9 +1,14 @@
-chunker:
-  type: "recursive"
-  chunk_size: 512
-  chunk_overlap: 65
+document_processor:
+  type: "default"
+
+  chunker:
+    type: "recursive"
+    chunk_size: 512
+    chunk_overlap: 65
+
+  loaders:
+    - "html"
 
 retriever:
   type: "dense"
-  top_k: 5
   filter_oversample_factor: 4

@@ -1,10 +1,9 @@
-from tqdm import tqdm
 from pathlib import Path
 from src.config.loader import load_app_config, load_pipeline_config
-from src.core.embedder.sentence_transformer_embedder import SentenceTransformerEmbedder
-from src.data.chunkers.chunker_factory import create_chunker
-from src.data.loaders.loader_factory import create_loader
-from src.storage.vector_store.store_factory import create_vector_store
+from retrieval.embedder.factory import create_embedder
+from indexing.chunkers.factory import create_chunker
+from indexing.loaders.factory import create_loader
+from retrieval.vector_store.factory import create_vector_store
 from paths.project_paths import ProjectPaths
 from src.logger.logger_setup import get_logger
 
@@ -18,7 +17,7 @@ def index_documents():
     logger.info("=== Document indexing started ===")
 
     logger.info("Loading documents from %s", paths.RAW)
-    loader = create_loader(config=app_config.data.loader, logger=logger)
+    loader = create_loader(loader_type="html", logger=logger)
     raw_docs = loader.load(raw_dir=paths.RAW, show_progress_bar=True)
     logger.info("Loaded %d documents", len(raw_docs))
 
@@ -34,13 +33,13 @@ def index_documents():
     chunks = chunker.split(documents=raw_docs)
     logger.info("Created %d chunks", len(chunks))
 
-    embedder = SentenceTransformerEmbedder(config=app_config.models.embedding)
+    embedder = create_embedder(config=app_config.models.embedder)
     texts = [chunk.content for chunk in chunks]
     logger.info("Generating embeddings for %d chunks...", len(texts))
     embeddings = embedder.embed(texts=texts, show_progress_bar=True)
     logger.info("Embeddings generated")
 
-    store = create_vector_store(config=app_config.data.storage)
+    store = create_vector_store(config=app_config.storage)
     logger.info("Saving chunks to vector store...")
     store.add(chunks, embeddings)
     logger.info("Index creation completed. Total chunks: %d", len(chunks))

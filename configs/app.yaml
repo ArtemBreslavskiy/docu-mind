@@ -3,7 +3,8 @@ api:
   port: 8000
 
 models:
-  embedding:
+  embedder:
+    type: "sentence_transformer"
     name: "BAAI/bge-m3"
     device: "cuda"
 
@@ -27,9 +28,5 @@ models:
         Summarize the following text in about {max_length} words.
         Keep all technical details, code examples, and key facts.\n\n{text}
 
-data:
-  storage:
-    type: "faiss"
-
-  loader:
-    type: "html"
+storage:
+  type: "faiss"

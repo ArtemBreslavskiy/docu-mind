@@ -2,10 +2,10 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, BaseMessage, SystemMessage
 from paths.project_paths import ProjectPaths
 from src.config.loader import load_app_config, load_agent_config, load_pipeline_config
-from src.core.embedder.sentence_transformer_embedder import SentenceTransformerEmbedder
-from src.storage.vector_store.store_factory import create_vector_store
-from src.core.retriever.retriever_factory import create_retriever
-from src.core.agent.agent_factory import create_agent
+from retrieval.embedder.sentence_transformer_embedder import SentenceTransformerEmbedder
+from retrieval.vector_store.factory import create_vector_store
+from retrieval.retriever.factory import create_retriever
+from agent.factory import create_agent
 from src.logger.logger_setup import get_logger
 
 
@@ -17,8 +17,8 @@ def query_agent():
     pipeline_config = load_pipeline_config(path=paths.PIPELINE_CONFIG)
     agent_config = load_agent_config(path=paths.AGENT_CONFIG)
 
-    embedder = SentenceTransformerEmbedder(config=app_config.models.embedding)
-    store = create_vector_store(config=app_config.data.storage)
+    embedder = SentenceTransformerEmbedder(config=app_config.models.embedder)
+    store = create_vector_store(config=app_config.storage)
     retriever = create_retriever(config=pipeline_config.retriever, embedder=embedder, store=store)
     logger = get_logger("agent")
     agent = create_agent(app_config=app_config, agent_config=agent_config, retriever=retriever, logger=logger)
