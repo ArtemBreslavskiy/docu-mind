@@ -1,7 +1,7 @@
 import asyncio
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel
-from retrieval.vector_store.base import BaseVectorStore
+from retrieval.vector_stores.base import BaseVectorStore
 
 
 class NoInput(BaseModel):

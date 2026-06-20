@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from retrieval.embedder.base import BaseEmbedder
+from retrieval.embedders.base import BaseEmbedder
 
 
 class SentenceTransformerEmbedder(BaseEmbedder):

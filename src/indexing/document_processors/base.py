@@ -8,13 +8,9 @@ from src.logger.logger_setup import get_logger
 
 
 class BaseDocumentProcessor(ABC):
-    def __init__(self, loaders: list[BaseLoader], chunker: BaseChunker, logger: logging.Logger = None, **kwargs):
-        self.loaders = loaders
-        self.chunker = chunker
-        self.logger = logger if logger is not None else get_logger("pipeline")
-        if logger is None:
-            self.logger.disabled = True
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
 
     @abstractmethod
-    def process(self, raw_dir: str | Path, show_progress_bar: bool = True) -> list[Chunk]:
+    async def process(self, raw_dir: str | Path, show_progress_bar: bool = True) -> list[Chunk]:
         ...

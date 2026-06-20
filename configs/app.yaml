@@ -3,11 +3,6 @@ api:
   port: 8000
 
 models:
-  embedder:
-    type: "sentence_transformer"
-    name: "BAAI/bge-m3"
-    device: "cuda"
-
   llm:
     client:
       provider: "ollama"
@@ -27,6 +22,3 @@ models:
       summarize: |
         Summarize the following text in about {max_length} words.
         Keep all technical details, code examples, and key facts.\n\n{text}
-
-storage:
-  type: "faiss"

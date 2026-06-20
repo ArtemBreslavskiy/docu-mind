@@ -3,7 +3,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, ToolMessage
 from agent.base import BaseAgent
 from src.logger.logger_setup import get_logger
-from retrieval.retriever.base import BaseRetriever
+from retrieval.retrievers.base import BaseRetriever
 from config.schemas.agent.agent import AgentConfig
 from agent.tools.tool_factory import create_tools
 from agent.json_parse_tool_calls import parse_tool_calls_from_text

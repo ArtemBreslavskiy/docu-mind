@@ -4,11 +4,11 @@ from langchain_core.documents import Document as LCDocument
 
 
 class Document(BaseModel):
-    page_content: str
+    content: str
     metadata: dict[str, Any]
 
     def to_langchain_document(self) -> LCDocument:
-        return LCDocument(page_content=self.page_content, metadata=self.metadata)
+        return LCDocument(page_content=self.content, metadata=self.metadata)
 
 
 class Chunk(BaseModel):

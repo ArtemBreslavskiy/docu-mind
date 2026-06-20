@@ -9,6 +9,17 @@ document_processor:
   loaders:
     - "html"
 
+  documents_store:
+    type: "postgres"
+
 retriever:
   type: "dense"
   filter_oversample_factor: 4
+
+  vector_storage:
+    type: "faiss"
+
+  embedder:
+    type: "sentence_transformer"
+    name: "BAAI/bge-m3"
+    device: "cuda"

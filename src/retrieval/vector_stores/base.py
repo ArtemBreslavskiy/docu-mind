@@ -4,9 +4,7 @@ from core_schemas import Chunk
 
 
 class BaseVectorStore(ABC):
-    def __init__(self, log_dir: str | Path, **kwargs):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     @abstractmethod

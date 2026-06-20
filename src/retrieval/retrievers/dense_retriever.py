@@ -1,13 +1,15 @@
 import json
-from retrieval.retriever.base import BaseRetriever
-from retrieval.embedder.base import BaseEmbedder
-from retrieval.vector_store.base import BaseVectorStore
+from retrieval.retrievers.base import BaseRetriever
+from retrieval.embedders.base import BaseEmbedder
+from retrieval.vector_stores.base import BaseVectorStore
 from core_schemas import SearchResult
 
 
 class DenseRetriever(BaseRetriever):
     def __init__(self, embedder: BaseEmbedder, store: BaseVectorStore, filter_oversample_factor: float = 3, **kwargs):
-        super().__init__(embedder=embedder, store=store, **kwargs)
+        super().__init__(**kwargs)
+        self.embedder = embedder
+        self.store = store
         self.filter_oversample_factor = filter_oversample_factor
 
     def retrieve(self, query: str, k: int = 5) -> list[SearchResult]:

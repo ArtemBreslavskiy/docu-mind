@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
 from core_schemas import SearchResult
-from retrieval.embedder.base import BaseEmbedder
-from retrieval.vector_store.base import BaseVectorStore
+from retrieval.embedders.base import BaseEmbedder
+from retrieval.vector_stores.base import BaseVectorStore
 
 
 class BaseRetriever(ABC):
-    def __init__(self, embedder: BaseEmbedder, store: BaseVectorStore, **kwargs):
-        self.embedder = embedder
-        self.store = store
+    def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     @abstractmethod

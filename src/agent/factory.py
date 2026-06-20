@@ -4,7 +4,7 @@ from agent.custom_agent import CustomAgent
 from llm.llm_factory import create_llm
 from config.schemas.app.app import AppConfig
 from config.schemas.agent.agent import AgentConfig
-from retrieval.retriever.base import BaseRetriever
+from retrieval.retrievers.base import BaseRetriever
 
 
 def create_agent(

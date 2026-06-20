@@ -1,6 +1,6 @@
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import BaseTool
-from retrieval.retriever.base import BaseRetriever
+from retrieval.retrievers.base import BaseRetriever
 from agent.tools.search_chunks import SearchChunksTool
 from agent.tools.search_chunks_by_field import SearchChunksByFieldTool
 from agent.tools.search_chunks_by_json_filter import SearchChunksByJSONFilterTool

@@ -1,9 +1,9 @@
 from pathlib import Path
 from src.config.loader import load_app_config, load_pipeline_config
-from retrieval.embedder.factory import create_embedder
+from retrieval.embedders.factory import create_embedder
 from indexing.chunkers.factory import create_chunker
 from indexing.loaders.factory import create_loader
-from retrieval.vector_store.factory import create_vector_store
+from retrieval.vector_stores.factory import create_vector_store
 from paths.project_paths import ProjectPaths
 from src.logger.logger_setup import get_logger
 
@@ -25,7 +25,7 @@ def index_documents():
     for doc in raw_docs:
         source_name = Path(doc.metadata.get("source", "unknown")).stem
         txt_path = paths.TEXTS / f"{source_name}.txt"
-        txt_path.write_text(doc.page_content, encoding="utf-8")
+        txt_path.write_text(doc.content, encoding="utf-8")
         doc.metadata["txt_path"] = str(txt_path)
     logger.info("Text copies saved to %s", paths.TEXTS)
 

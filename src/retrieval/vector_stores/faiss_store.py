@@ -3,13 +3,15 @@ import numpy as np
 import json
 from pathlib import Path
 from typing import Union, Optional
-from retrieval.vector_store.base import BaseVectorStore
+from retrieval.vector_stores.base import BaseVectorStore
 from core_schemas import Chunk
 
 
 class FAISSStore(BaseVectorStore):
     def __init__(self, log_dir: str | Path, **kwargs):
-        super().__init__(log_dir=log_dir, **kwargs)
+        super().__init__(**kwargs)
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.store_path = self.log_dir / "store"
         self.json_path = self.log_dir / "chunks.json"

@@ -1,7 +1,7 @@
 import asyncio
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
-from retrieval.retriever.base import BaseRetriever
+from retrieval.retrievers.base import BaseRetriever
 
 
 class SearchChunksByFieldInput(BaseModel):

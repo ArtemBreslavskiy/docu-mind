@@ -13,7 +13,7 @@ class BaseChunkerConfig(BaseModel, ABC):
 
 
 class RecursiveChunkerConfig(BaseChunkerConfig):
-    type: Literal["recursive"] = "recursive"
+    type: Literal["recursive"]
     chunk_size: int = Field(512, ge=128, le=4096)
     chunk_overlap: int = Field(64, ge=0, le=1024)
     separators: list[str] = ["\n\n", "\n", ". ", " ", ""]
