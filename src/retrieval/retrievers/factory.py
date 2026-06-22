@@ -5,7 +5,7 @@ from retrieval.vector_stores.factory import create_vector_store
 
 
 def create_retriever(config: BaseRetrieverConfig) -> BaseRetriever:
-    if config.type == "dense" and isinstance(config, DenseRetrieverConfig):
+    if config.type == "dense":
         from retrieval.retrievers.dense_retriever import DenseRetriever
 
         retriever_params = config.model_dump(exclude={"type", "embedder", "vector_storage"})

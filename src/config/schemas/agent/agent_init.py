@@ -1,15 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Literal
-from abc import ABC, abstractmethod
 
 
-class BaseAgentInitConfig(BaseModel, ABC):
+class BaseAgentInitConfig(BaseModel):
     model_config = {"extra": "forbid"}
-
-    @property
-    @abstractmethod
-    def type(self) -> str:
-        ...
+    type: str
 
 
 class CustomAgentInitConfig(BaseAgentInitConfig):

@@ -1,4 +1,5 @@
 import logging
+import uuid
 from tqdm import tqdm
 from pathlib import Path
 from bs4 import BeautifulSoup
@@ -50,17 +51,21 @@ class HTMLLoader(BaseLoader):
             if not sections:
                 text = extract(content, include_comments=False, include_tables=False)
                 if text:
+                    description = f"{page_title}--{str(uuid.uuid4())[:8]}"
                     metadata = {
                         "loaded_from": "html",
                         "source": str(html_file),
                         "title": page_title,
                     }
                     metadata.update(meta_tags)
-                    documents.append(Document(page_content=text, metadata=metadata))
+                    documents.append(Document(content=text, metadata=metadata, description=description))
                 continue
 
             self.logger.debug("Found %d sections in %s", len(sections), html_file.name)
             for section_title, section_text in sections:
+                if not section_text:
+                    continue
+                description = f"{page_title}--{section_title}--{str(uuid.uuid4())[:8]}"
                 metadata = {
                     "loaded_from": "html",
                     "source": str(html_file),
@@ -68,7 +73,7 @@ class HTMLLoader(BaseLoader):
                     "section": section_title,
                 }
                 metadata.update(meta_tags)
-                documents.append(Document(page_content=section_text, metadata=metadata))
+                documents.append(Document(content=section_text, metadata=metadata, description=description))
 
         self.logger.info("Finished loading. Total documents: %d", len(documents))
         return documents

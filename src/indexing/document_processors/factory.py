@@ -9,10 +9,10 @@ from src.config.schemas.pipeline.document_processor import BaseDocumentProcessor
 def create_document_processor(
     config: BaseDocumentProcessorConfig,
 ) -> BaseDocumentProcessor:
-    if config.type == "default" and isinstance(config, DefaultDocumentProcessorConfig):
+    if config.type == "default":
         from src.indexing.document_processors.default_document_processor import DefaultDocumentProcessor
 
-        document_processor_params = config.model_dump(exclude={"type", "chunker", "loaders"})
+        document_processor_params = config.model_dump(exclude={"type", "chunker", "loaders", "documents_store"})
         chunker = create_chunker(config=config.chunker)
         documents_store = create_documents_store(config=config.documents_store)
         logger = get_logger("pipeline")

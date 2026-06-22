@@ -1,15 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Literal
-from abc import ABC, abstractmethod
 
 
-class BaseClientConfig(BaseModel, ABC):
+class BaseClientConfig(BaseModel):
     model_config = {"extra": "forbid"}
-
-    @property
-    @abstractmethod
-    def provider(self) -> str:
-        ...
+    provider: str
 
 
 class OllamaClientConfig(BaseClientConfig):

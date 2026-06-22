@@ -4,7 +4,7 @@ from paths.project_paths import ProjectPaths
 
 
 def create_vector_store(config: BaseStorageConfig) -> BaseVectorStore:
-    if config.type == "faiss" and isinstance(config, FAISSStorageConfig):
+    if config.type == "faiss":
         from retrieval.vector_stores.faiss_store import FAISSStore
 
         store_params = config.model_dump(exclude={"type"})

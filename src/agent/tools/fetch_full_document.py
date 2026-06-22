@@ -1,11 +1,11 @@
 import asyncio
-from pathlib import Path
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
+from src.indexing.documents_stores.base import BaseDocumentsStore
 
 
 class FetchFullDocumentInput(BaseModel):
-    file_path: str = Field(description="Path to the text file of the document (e.g., 'data/processed/autograd.txt')")
+    doc_id: str = Field(description="ID of the document to retrieve")
     max_chars: int = Field(
         50000,
         ge=1000,
@@ -18,18 +18,17 @@ class FetchFullDocumentTool(BaseTool):
     name: str = "fetch_full_document"
     description: str
     args_schema: type[BaseModel] = FetchFullDocumentInput
+    documents_store: BaseDocumentsStore
 
-    def _run(self, file_path: str, max_chars: int = 50000) -> str:
-        path = Path(file_path)
-        if not path.exists():
-            return f"Error: file '{file_path}' not found."
-        if path.suffix != ".txt":
-            return f"Error: only .txt files are supported, got {path.suffix}"
+    async def _arun(self, doc_id: str, max_chars: int = 50000) -> str:
+        doc = await self.documents_store.get(doc_id)
+        if doc is None:
+            return f"Error: document with ID '{doc_id}' not found."
 
-        text = path.read_text(encoding="utf-8")
+        text = doc.content
         if len(text) > max_chars:
             text = text[:max_chars] + "\n\n... [truncated]"
         return text
 
-    async def _arun(self, file_path: str, max_chars: int = 50000):
-        return await asyncio.to_thread(self._run, file_path, max_chars)
+    def _run(self, doc_id: str, max_chars: int = 50000) -> str:
+        return asyncio.run(self._arun(doc_id, max_chars))

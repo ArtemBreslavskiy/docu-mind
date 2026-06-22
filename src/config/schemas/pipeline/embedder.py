@@ -1,15 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Literal
-from abc import ABC, abstractmethod
 
 
-class BaseEmbedderConfig(BaseModel, ABC):
+class BaseEmbedderConfig(BaseModel):
     model_config = {"extra": "forbid"}
-
-    @property
-    @abstractmethod
-    def type(self) -> str:
-        ...
+    type: str
 
 
 class SentenceTransformerEmbedderConfig(BaseEmbedderConfig):

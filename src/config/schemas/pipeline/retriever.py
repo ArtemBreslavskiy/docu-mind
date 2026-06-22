@@ -1,17 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Union
-from abc import ABC, abstractmethod
 from src.config.schemas.pipeline.storage import FAISSStorageConfig
 from config.schemas.pipeline.embedder import SentenceTransformerEmbedderConfig
 
 
-class BaseRetrieverConfig(BaseModel, ABC):
+class BaseRetrieverConfig(BaseModel):
     model_config = {"extra": "forbid"}
-
-    @property
-    @abstractmethod
-    def type(self) -> str:
-        ...
+    type: str
 
 
 class DenseRetrieverConfig(BaseRetrieverConfig):

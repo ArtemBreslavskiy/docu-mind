@@ -31,7 +31,7 @@ class DefaultDocumentProcessor(BaseDocumentProcessor):
         all_docs = []
 
         if not raw_dir.exists():
-            msg = "Directory does not exist: %s", raw_dir
+            msg = f"Directory does not exist: {raw_dir}",
             self.logger.error(msg)
             raise FileNotFoundError(msg)
         self.logger.info("Starting document processing from %s", raw_dir)
@@ -46,8 +46,8 @@ class DefaultDocumentProcessor(BaseDocumentProcessor):
             self.logger.warning("No documents found")
             return []
 
-        docs_to_save = [(str(uuid.uuid4()), doc) for doc in all_docs]
-        await self.documents_store.save_all(docs_to_save)
+        docs_models = [(str(uuid.uuid4()), doc) for doc in all_docs]
+        await self.documents_store.save_all(docs_models)
 
         self.logger.info("Total documents: %d", len(all_docs))
         chunks = self.chunker.split(all_docs)

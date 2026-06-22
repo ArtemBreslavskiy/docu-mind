@@ -1,18 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Union
-from abc import ABC, abstractmethod
 from src.config.schemas.pipeline.chunker import RecursiveChunkerConfig
 from src.config.schemas.pipeline.documents_store import PostgresDocumentsStoreConfig
-from src.config.schemas.pipeline.chunker import BaseChunkerConfig
 
 
-class BaseDocumentProcessorConfig(BaseModel, ABC):
+class BaseDocumentProcessorConfig(BaseModel):
     model_config = {"extra": "forbid"}
-
-    @property
-    @abstractmethod
-    def type(self) -> str:
-        ...
+    type: str
 
 
 class DefaultDocumentProcessorConfig(BaseDocumentProcessorConfig):

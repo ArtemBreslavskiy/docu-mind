@@ -9,5 +9,6 @@ class DocumentModel(Base):
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True)
+    description = Column(Text, nullable=False)
     content = Column(Text, nullable=False)
     meta_json = Column(String, default="{}")

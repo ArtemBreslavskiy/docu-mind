@@ -1,15 +1,10 @@
 from pydantic import BaseModel
 from typing import Literal
-from abc import ABC, abstractmethod
 
 
-class BaseStorageConfig(BaseModel, ABC):
+class BaseStorageConfig(BaseModel):
     model_config = {"extra": "forbid"}
-
-    @property
-    @abstractmethod
-    def type(self) -> str:
-        ...
+    type: str
 
 
 class FAISSStorageConfig(BaseStorageConfig):

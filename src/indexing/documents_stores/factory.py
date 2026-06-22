@@ -5,7 +5,7 @@ from src.config.schemas.pipeline.documents_store import BaseDocumentsStoreConfig
 
 
 def create_documents_store(config: BaseDocumentsStoreConfig) -> BaseDocumentsStore:
-    if config.type == "postgres" and isinstance(config, PostgresDocumentsStoreConfig):
+    if config.type == "postgres":
         from src.indexing.documents_stores.postgres_store import PostgresDocumentsStore
 
         host = os.getenv("FULLTEXT_HOST", "localhost")

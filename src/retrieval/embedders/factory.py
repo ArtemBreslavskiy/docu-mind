@@ -3,7 +3,7 @@ from config.schemas.pipeline.embedder import BaseEmbedderConfig, SentenceTransfo
 
 
 def create_embedder(config: BaseEmbedderConfig) -> BaseEmbedder:
-    if config.type == "sentence_transformer" and isinstance(config, SentenceTransformerEmbedderConfig):
+    if config.type == "sentence_transformer":
         from src.retrieval.embedders.sentence_transformer_embedder import SentenceTransformerEmbedder
         embedder_params = config.model_dump(exclude={"type"})
         return SentenceTransformerEmbedder(**embedder_params)

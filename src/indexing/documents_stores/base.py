@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from src.core_schemas import Document
+from src.indexing.documents_stores.models import DocumentModel
 
 
 class BaseDocumentsStore(ABC):
@@ -7,15 +8,19 @@ class BaseDocumentsStore(ABC):
         self.kwargs = kwargs
 
     @abstractmethod
-    async def save(self, doc_id: str, doc: Document) -> None:
+    async def save(self, doc_id: str, document: Document) -> None:
         ...
 
     @abstractmethod
-    async def save_all(self, docs: list[tuple[str, Document]]) -> None:
+    async def save_all(self, documents: list[(str, Document)]) -> None:
         ...
 
     @abstractmethod
     async def get(self, doc_id: str) -> Document | None:
+        ...
+
+    @abstractmethod
+    async def get_base_info(self) -> list[dict[str, str]]:
         ...
 
     @abstractmethod

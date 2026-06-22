@@ -2,6 +2,7 @@ import asyncio
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 from paths.project_paths import ProjectPaths
+from src.indexing.documents_stores.base import BaseDocumentsStore
 
 
 class NoInput(BaseModel):
@@ -12,15 +13,21 @@ class ListDocumentsTool(BaseTool):
     name: str = "list_documents"
     description: str
     args_schema: type[BaseModel] = NoInput
+    documents_store: BaseDocumentsStore
 
-    def _run(self) -> str:
-        paths = ProjectPaths()
-        txt_files = sorted(paths.TEXTS.glob("*.txt"))
-        if not txt_files:
-            return "No .txt files found."
+    async def _arun(self) -> str:
+        docs = await self.documents_store.get_base_info()
+        if not docs:
+            return "No documents available."
 
-        lines = [f"- {f.name}" for f in txt_files]
+        lines = []
+        for doc in docs:
+            desc = doc.get("description") or "No description"
+            lines.append(f"- ID: {doc['id']}\n  Description: {desc}")
+
         return "Available documents:\n" + "\n".join(lines)
 
-    async def _arun(self):
-        return await asyncio.to_thread(self._run)
+    def _run(self) -> str:
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self._arun())

@@ -3,7 +3,7 @@ from config.schemas.pipeline.chunker import BaseChunkerConfig, RecursiveChunkerC
 
 
 def create_chunker(config: BaseChunkerConfig) -> BaseChunker:
-    if config.type == "recursive" and isinstance(config, RecursiveChunkerConfig):
+    if config.type == "recursive":
         from indexing.chunkers.recursive_chunker import RecursiveChunker
         chunker_params = config.model_dump(exclude={"type"})
         return RecursiveChunker(config=config, **chunker_params)

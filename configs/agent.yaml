@@ -95,10 +95,10 @@ tools:
   - name: fetch_full_document
     enable: true
     prompt: |
-      Retrieves the full text of a specific document by its file path. Only call this
-      **after list_documents** and only for a file that actually exists in that list.
-      Use it when you need complete context from a particular document to answer the
-      question. The file_path must be one of the entries returned by list_documents.
+      Retrieves the full text of a specific document by its ID. Only call this 
+      **after list_documents** and only for a document that actually exists in that list.
+      Use it when you need complete context from a particular document to answer the 
+      question. The ID must be one of the entries returned by list_documents.
 
   - name: list_documents
     enable: true
