@@ -15,13 +15,14 @@ def create_documents_store(config: BaseDocumentsStoreConfig) -> BaseDocumentsSto
         if not url:
             raise ValueError("FULLTEXT_URL environment variable is required for PostgreSQL connection")
 
-        documents_store_params = config.model_dump(exclude={"type"})
         engine = create_async_engine(url, echo=False)
         session_factory = async_sessionmaker(
             engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
+
+        documents_store_params = config.model_dump(exclude={"type"})
         return PostgresDocumentsStore(session_factory=session_factory, **documents_store_params)
 
     else:

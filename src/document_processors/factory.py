@@ -1,4 +1,4 @@
-from src.logger.logger_setup import get_logger
+import logging
 from loaders.factory import create_loader
 from chunkers.factory import create_chunker
 from documents_stores.factory import create_documents_store
@@ -6,7 +6,10 @@ from document_processors.base import BaseDocumentProcessor
 from src.configs.schemas.pipeline.document_processor import BaseDocumentProcessorConfig
 
 
-def create_document_processor(config: BaseDocumentProcessorConfig) -> BaseDocumentProcessor | None:
+def create_document_processor(
+    config: BaseDocumentProcessorConfig,
+    logger: logging.Logger | None
+) -> BaseDocumentProcessor | None:
     if config.type == "disabled":
         return None
 
@@ -14,14 +17,19 @@ def create_document_processor(config: BaseDocumentProcessorConfig) -> BaseDocume
         from document_processors.implementations.default_document_processor import DefaultDocumentProcessor
 
         chunker = create_chunker(config=config.chunker)
+        if not chunker:
+            raise ValueError("Chunker cannot be disabled")
+
         documents_store = create_documents_store(config=config.documents_store)
-        logger = get_logger("pipeline")
+        if not documents_store:
+            raise ValueError("Documents store cannot be disabled")
+
         loaders = []
         for loader_type in config.loaders:
             loader = create_loader(loader_type=loader_type)
             loaders.append(loader)
-        document_processor_params = config.model_dump(exclude={"type", "chunker", "loaders", "documents_store"})
 
+        document_processor_params = config.model_dump(exclude={"type", "chunker", "loaders", "documents_store"})
         return DefaultDocumentProcessor(
             loaders=loaders,
             chunker=chunker,

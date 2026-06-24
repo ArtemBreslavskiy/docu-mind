@@ -11,11 +11,16 @@ def create_retriever(config: BaseRetrieverConfig) -> BaseRetriever | None:
     elif config.type == "dense":
         from retrievers.implementations.dense_retriever import DenseRetriever
 
-        retriever_params = config.model_dump(exclude={"type", "embedder", "vector_storage"})
         embedder = create_embedder(config.embedder)
-        store = create_vector_store(config.vector_storage)
+        if not embedder:
+            raise ValueError("Embedder cannot be disabled")
 
-        return DenseRetriever(embedder=embedder, store=store, **retriever_params)
+        vector_store = create_vector_store(config.vector_storage)
+        if not vector_store:
+            raise ValueError("Vector store cannot be disabled")
+
+        retriever_params = config.model_dump(exclude={"type", "embedder", "vector_storage"})
+        return DenseRetriever(embedder=embedder, store=vector_store, **retriever_params)
 
     else:
         raise ValueError(f"Unknown retriever type: {config.type}")

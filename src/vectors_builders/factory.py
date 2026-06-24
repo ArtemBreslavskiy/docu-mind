@@ -1,11 +1,11 @@
+import logging
 from src.vectors_builders.base import BaseVectorsBuilder
 from src.configs.schemas.pipeline.vectors_builder import BaseVectorsBuilderConfig
 from src.vector_stores.factory import create_vector_store
 from src.embedders.factory import create_embedder
-from src.logger.logger_setup import get_logger
 
 
-def create_vectors_builder(config: BaseVectorsBuilderConfig) -> BaseVectorsBuilder | None:
+def create_vectors_builder(config: BaseVectorsBuilderConfig, logger: logging.Logger) -> BaseVectorsBuilder | None:
     if config.type == "disabled":
         return None
 
@@ -13,10 +13,14 @@ def create_vectors_builder(config: BaseVectorsBuilderConfig) -> BaseVectorsBuild
         from vectors_builders.implementations.default_vectors_builder import DefaultVectorsBuilder
 
         vector_store = create_vector_store(config.vector_store)
-        embedder = create_embedder(config.embedder)
-        logger = get_logger("pipeline")
-        vectors_builder_params = config.model_dump(exclude={"type", "vector_store", "embedder"})
+        if not vector_store:
+            raise ValueError("Vector store cannot be disabled")
 
+        embedder = create_embedder(config.embedder)
+        if not embedder:
+            raise ValueError("Embedder cannot be disabled")
+
+        vectors_builder_params = config.model_dump(exclude={"type", "vector_store", "embedder"})
         return DefaultVectorsBuilder(
             embedder=embedder,
             vector_store=vector_store,
