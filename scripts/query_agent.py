@@ -1,11 +1,11 @@
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, BaseMessage, SystemMessage
 from paths.project_paths import ProjectPaths
-from src.config.loader import load_app_config, load_agent_config, load_pipeline_config
-from retrieval.embedders.sentence_transformer_embedder import SentenceTransformerEmbedder
-from retrieval.vector_stores.factory import create_vector_store
-from retrieval.retrievers.factory import create_retriever
-from agent.factory import create_agent
+from src.configs.loader import load_app_config, load_agent_config, load_pipeline_config
+from embedders.implementations.sentence_transformer_embedder import SentenceTransformerEmbedder
+from vector_stores.factory import create_vector_store
+from retrievers.factory import create_retriever
+from agents.factory import create_agent
 from src.logger.logger_setup import get_logger
 
 
@@ -23,7 +23,7 @@ def query_agent():
     )
     store = create_vector_store(config=app_config.storage)
     retriever = create_retriever(config=pipeline_config.retriever, embedder=embedder, store=store)
-    logger = get_logger("agent")
+    logger = get_logger("agents")
     agent = create_agent(app_config=app_config, agent_config=agent_config, retriever=retriever, logger=logger)
 
     chat_history: list[BaseMessage] = [SystemMessage(content=agent_config.prompts.system)]

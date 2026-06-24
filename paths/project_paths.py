@@ -8,7 +8,7 @@ class ProjectPaths:
     LOGS: Path = ROOT / "logs"
     DATA: Path = ROOT / "data"
 
-    AGENT_CONFIG: Path = CONFIGS / "agent.yaml"
+    AGENT_CONFIG: Path = CONFIGS / "agents.yaml"
     APP_CONFIG: Path = CONFIGS / "app.yaml"
     PIPELINE_CONFIG: Path = CONFIGS / "pipeline.yaml"
     LOGGING_CONFIG: Path = CONFIGS / "logging.yaml"

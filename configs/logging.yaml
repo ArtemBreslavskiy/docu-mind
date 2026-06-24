@@ -18,7 +18,7 @@ default:
 types:
   agent:
     name: "agent_logger"
-    filename_pattern: "agent.log"
+    filename_pattern: "agents.log"
     console:
       level: "INFO"
     file:

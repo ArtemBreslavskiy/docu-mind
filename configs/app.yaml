@@ -1,24 +1,3 @@
 api:
   host: "0.0.0.0"
   port: 8000
-
-models:
-  llm:
-    client:
-      provider: "ollama"
-      model: "gpt-oss:120b-cloud"
-      temperature: 0.0
-      base_url: "http://localhost:11434"
-      max_tokens: 512
-
-    prompts:
-      answer_with_context: |
-        You are a technical documentation assistant.
-        Answer the user's question based ONLY on the provided context.
-        If the answer is not found in the context, say "I don't have this information in the provided documents."
-        Do not make up any facts or use your own knowledge.
-        Answer in the same language as the user's question.
-
-      summarize: |
-        Summarize the following text in about {max_length} words.
-        Keep all technical details, code examples, and key facts.\n\n{text}

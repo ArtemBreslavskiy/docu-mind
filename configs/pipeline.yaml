@@ -1,11 +1,9 @@
 document_processor:
   type: "default"
-
   chunker:
     type: "recursive"
     chunk_size: 512
     chunk_overlap: 65
-
   loaders:
     - "html"
     - "pdf"
@@ -14,17 +12,40 @@ document_processor:
     - "epub"
     - "text"
     - "xaml"
-
   documents_store:
     type: "postgres"
+
+vectors_builder:
+  type: "default"
+  vector_store:
+    type: "faiss"
+  embedder:
+    type: "sentence_transformer"
+    name: "BAAI/bge-m3"
+    device: "cuda"
+
+graph_builder:
+  type: "llm_based"
+  batch_size: 10
+  similarity_threshold: 0.85
+  graph_store:
+    type: "neo4j"
+  embedder:
+    type: "sentence_transformer"
+    name: "BAAI/bge-m3"
+    device: "cuda"
+  llm:
+    provider: "ollama"
+    model: "gpt-oss:120b-cloud"
+    temperature: 0.0
+    base_url: "http://localhost:11434"
+    max_tokens: 512
 
 retriever:
   type: "dense"
   filter_oversample_factor: 4
-
   vector_storage:
     type: "faiss"
-
   embedder:
     type: "sentence_transformer"
     name: "BAAI/bge-m3"

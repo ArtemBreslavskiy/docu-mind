@@ -1,6 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from src.config.loader import load_logging_config
+from src.configs.loader import load_logging_config
 from paths.project_paths import ProjectPaths
 
 

@@ -1,9 +1,9 @@
 import asyncio
 from dotenv import load_dotenv
-from src.config.loader import load_pipeline_config
-from retrieval.embedders.factory import create_embedder
-from indexing.document_processors.factory import create_document_processor
-from retrieval.vector_stores.factory import create_vector_store
+from src.configs.loader import load_pipeline_config
+from embedders.factory import create_embedder
+from document_processors.factory import create_document_processor
+from vector_stores.factory import create_vector_store
 from paths.project_paths import ProjectPaths
 from src.logger.logger_setup import get_logger
 
@@ -14,7 +14,7 @@ async def index_documents():
     load_dotenv()
 
     logger = get_logger("pipeline")
-    logger.info("=== Document indexing started ===")
+    logger.info("=== Document documents started ===")
 
     document_processor = create_document_processor(pipeline_config.document_processor)
     chunks = await document_processor.process(paths.RAW, show_progress_bar=True)
