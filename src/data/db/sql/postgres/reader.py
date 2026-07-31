@@ -84,4 +84,6 @@ class PostgresReader(BaseSQLReader):
             raise
 
     async def close(self) -> None:
+        self.logger.debug("Closing PostgresReader client")
         await self._client.close()
+        self.logger.debug("PostgresReader client closed")

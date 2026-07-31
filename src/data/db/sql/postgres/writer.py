@@ -11,7 +11,7 @@ from src.utils.truncate import truncate
 
 class PostgresWriter(BaseSQLWriter):
     WRITE_TYPES = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "MERGE"}
-    ALLOWED_OPS = {"gt", "lt", "gte", "lte", "ne", "in", "isnull", "like", "ilike"}
+    ALLOWED_FILTER_OPS = {"gt", "lt", "gte", "lte", "ne", "in", "isnull", "like", "ilike"}
     MAX_VALIDATION_ERRORS = 20
     MAX_TABLE_NAME_LENGTH = 500
     MAX_DATA_LENGTH = 500
@@ -227,7 +227,7 @@ class PostgresWriter(BaseSQLWriter):
         for key in filter.keys():
             if "__" in key:
                 operator = key.split("__")[1]
-                if operator not in PostgresWriter.ALLOWED_OPS:
+                if operator not in PostgresWriter.ALLOWED_FILTER_OPS:
                     return f"[Filter] Unsupported operator '{operator}' in key '{key}'."
 
     @staticmethod
@@ -438,6 +438,11 @@ class PostgresWriter(BaseSQLWriter):
         except Exception as e:
             self.logger.error(f"Write query failed: {e}", exc_info=True)
             raise
+
+    async def close(self) -> None:
+        self.logger.debug("Closing PostgresWriter client")
+        await self._client.close()
+        self.logger.debug("PostgresWriter client closed")
 
     async def create_one(self, table_name: str, data: dict[str, Any], schema: str | None = None) -> dict[str, Any]:
         self.logger.info(f"Creating one record in table '{table_name}'")
@@ -856,9 +861,6 @@ class PostgresWriter(BaseSQLWriter):
         except Exception as e:
             self.logger.error(f"Failed to delete records by filter from '{table_name}': {e}", exc_info=True)
             raise
-
-    async def close(self) -> None:
-        await self._client.close()
 
     def table_cache_clear(self) -> None:
         self._tables_cache.clear()
