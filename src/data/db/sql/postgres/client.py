@@ -3,13 +3,13 @@ from typing import Any, Callable
 from sqlalchemy import Executable
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 from sqlalchemy import text
-from src.data.db.sql.base import ISQLClient
+from src.data.db.base import IConnection, ITransactional
 from sqlalchemy.engine import Result
 from src.utils.truncate import truncate
 from src.utils.logger_setup import get_null_logger
 
 
-class PostgresAsyncClient(ISQLClient):
+class PostgresAsyncClient(IConnection, ITransactional):
     MAX_SQL_REQUEST_LENGTH_TO_LOG = 500
     MAX_SQL_PARAMS_LENGTH_TO_LOG = 500
 
@@ -40,22 +40,17 @@ class PostgresAsyncClient(ISQLClient):
         self._conn: AsyncConnection | None = None
         self._in_tx: bool = False
 
-    async def _get_conn(self) -> AsyncConnection:
+    async def connect(self) -> None:
+        self.logger.debug("Connecting to Postgres...")
         if self._conn is not None:
-            return self._conn
-        self.logger.debug("Creating temporary connection for one-off operation")
+            self.logger.debug("Connection already exist, reusing")
+            return
+        self.logger.debug("Creating connection")
         try:
-            return await self.engine.connect()
+            self._conn = await self.engine.connect()
         except Exception as e:
             self.logger.error(f"Failed to establish database connection: {e}", exc_info=True)
             raise
-
-    async def connect(self) -> None:
-        if self._conn is not None:
-            self.logger.debug("Connection already established")
-            return
-        self._conn = await self._get_conn()
-        self._in_tx = False
         self.logger.debug("Connection established")
 
     async def close(self) -> None:
@@ -110,67 +105,41 @@ class PostgresAsyncClient(ISQLClient):
     async def begin_transaction(self) -> None:
         if self._in_tx:
             raise RuntimeError("Transaction already in progress")
+
         if self._conn is not None:
-            self._in_tx = True
             self.logger.debug("Using existing connection for transaction")
         else:
-            self._conn = await self._get_conn()
-            self._in_tx = True
+            await self.connect()
             self.logger.debug("New connection for transaction")
+        self._in_tx = True
 
     async def commit_transaction(self) -> None:
         self.logger.debug("Committing transaction...")
         if self._conn is None:
             raise RuntimeError("No active transaction")
-        error_lines = []
 
         try:
             await self._conn.commit()
             self.logger.debug("Transaction committed successfully")
-
         except Exception as e:
             self.logger.error(f"Commit failed: {e}", exc_info=True)
-            error_lines.append(str(e))
-
+            raise
         finally:
-            try:
-                await self._conn.close()
-            except Exception as e:
-                self.logger.error(f"Error while closing connection after commit: {e}", exc_info=True)
-                error_lines.append(str(e))
-            finally:
-                self._conn = None
-                self._in_tx = False
-
-        if error_lines:
-            raise RuntimeError("\n".join(error_lines))
+            self._in_tx = False
 
     async def rollback_transaction(self) -> None:
         self.logger.debug("Rolling back transaction...")
         if self._conn is None:
             raise RuntimeError("No active transaction")
-        error_lines = []
 
         try:
             await self._conn.rollback()
             self.logger.debug("Transaction rolled back successfully")
-
         except Exception as e:
             self.logger.error(f"Failed to rollback transaction: {e}", exc_info=True)
-            error_lines.append(str(e))
-
+            raise
         finally:
-            try:
-                await self._conn.close()
-            except Exception as e:
-                self.logger.error(f"Error while closing connection after rollback: {e}", exc_info=True)
-                error_lines.append(str(e))
-            finally:
-                self._conn = None
-                self._in_tx = False
-
-        if error_lines:
-            raise RuntimeError("\n".join(error_lines))
+            self._in_tx = False
 
     async def execute(
         self,
@@ -184,11 +153,11 @@ class PostgresAsyncClient(ISQLClient):
             self.logger.debug(f"Params: {truncate(params_str, PostgresAsyncClient.MAX_SQL_PARAMS_LENGTH_TO_LOG)}")
         error_lines = []
 
+        await self.connect()
         try:
-            conn = await self._get_conn()
-            result = await conn.execute(stmt, params or {})
-            if self._conn is None:
-                await conn.commit()
+            result = await self._conn.execute(stmt, params or {})
+            if not self._in_tx:
+                await self._conn.commit()
             if result.returns_rows:
                 self.logger.debug(f"SQL executed successfully, returned rows")
             else:
@@ -198,40 +167,32 @@ class PostgresAsyncClient(ISQLClient):
         except Exception as e:
             self.logger.error(f"SQL execution failed: {e}", exc_info=True)
             error_lines.append(str(e))
-            if self._conn is None:
+            if not self._in_tx:
                 try:
-                    await conn.rollback()
+                    await self._conn.rollback()
                     self.logger.debug("Transaction rolled back successfully")
                 except Exception as e:
                     self.logger.error(f"Failed to rollback transaction: {e}", exc_info=True)
                     error_lines.append(str(e))
-
-        finally:
-            if self._conn is None:
-                await conn.close()
 
     async def run_sync_on_connection(self, func: Callable, *args, **kwargs) -> Any:
         func_name = getattr(func, '__name__', str(func))
         self.logger.debug(f"Running sync function '{func_name}' on connection")
         error_lines = []
 
+        await self.connect()
         try:
-            conn = await self._get_conn()
-            result = await conn.run_sync(func, *args, **kwargs)
+            result = await self._conn.run_sync(func, *args, **kwargs)
             self.logger.debug(f"Sync function '{func_name}' executed successfully")
             return result
 
         except Exception as e:
             self.logger.error(f"Sync function '{func_name}' failed: {e}", exc_info=True)
             error_lines.append(str(e))
-            if self._conn is None:
+            if not self._in_tx:
                 try:
-                    await conn.rollback()
+                    await self._conn.rollback()
                     self.logger.debug("Transaction rolled back successfully")
                 except Exception as e:
                     self.logger.error(f"Failed to rollback transaction: {e}", exc_info=True)
                     error_lines.append(str(e))
-
-        finally:
-            if self._conn is None:
-                await conn.close()

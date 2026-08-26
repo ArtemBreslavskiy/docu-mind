@@ -438,7 +438,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Write query failed: {e}", exc_info=True)
             raise
 
-    async def create_one(self, table_name: str, data: dict[str, Any], schema: str | None = None) -> dict[str, Any]:
+    async def create_one(self, table_name: str, data: dict, schema: str | None = None) -> dict:
         self.logger.info(f"Creating one record in table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -472,10 +472,10 @@ class PostgresWriter(ISQLWriter):
     async def upsert_one(
         self,
         table_name: str,
-        data: dict[str, Any],
+        data: dict,
         conflict_columns: list[str],
-        schema: str | None = None,
-    ) -> dict[str, Any]:
+        schema: str | None = None
+    ) -> dict:
         self.logger.info(f"Upserting one record in table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -511,13 +511,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to upsert record in '{table_name}': {e}", exc_info=True)
             raise
 
-    async def update_one(
-        self,
-        table_name: str,
-        update_data: dict[str, Any],
-        match: dict[str, Any],
-        schema: str | None = None,
-    ) -> dict[str, Any]:
+    async def update_one(self,  table_name: str, update_data: dict, match: dict, schema: str | None = None) -> dict:
         self.logger.info(f"Updating one record in table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -551,7 +545,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to update record in '{table_name}': {e}", exc_info=True)
             raise
 
-    async def delete_one(self, table_name: str, match: dict[str, Any], schema: str | None = None) -> dict[str, Any]:
+    async def delete_one(self, table_name: str, match: dict, schema: str | None = None) -> dict:
         self.logger.info(f"Deleting one record from table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -583,12 +577,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to delete record from '{table_name}': {e}", exc_info=True)
             raise
 
-    async def create_many(
-        self,
-        table_name: str,
-        data_list: list[dict[str, Any]],
-        schema: str | None = None,
-    ) -> list[dict[str, Any]]:
+    async def create_many(self, table_name: str, data_list: list[dict], schema: str | None = None) -> list[Any]:
         self.logger.info(f"Creating {len(data_list)} records in table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -625,10 +614,10 @@ class PostgresWriter(ISQLWriter):
     async def upsert_many(
         self,
         table_name: str,
-        data_list: list[dict[str, Any]],
+        data_list: list[dict],
         conflict_columns: list[str],
-        schema: str | None = None,
-    ) -> list[dict[str, Any]]:
+        schema: str | None = None
+    ) -> list[dict]:
         self.logger.info(f"Upserting {len(data_list)} records in table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -667,12 +656,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to upsert {len(data_list)} records in '{table_name}': {e}", exc_info=True)
             raise
 
-    async def update_many(
-        self,
-        table_name: str,
-        updates: list[SQLUpdate],
-        schema: str | None = None
-    ) -> list[dict[str, Any]]:
+    async def update_many(self, table_name: str, updates: list[SQLUpdate], schema: str | None = None) -> list[dict]:
         self.logger.info(f"Updating {len(updates)} records in table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -733,10 +717,10 @@ class PostgresWriter(ISQLWriter):
     async def update_by_filter(
         self,
         table_name: str,
-        update_data: dict[str, Any],
-        filter: dict[str, Any],
-        schema: str | None = None,
-    ) -> list[dict[str, Any]]:
+        update_data: dict,
+        filter: dict,
+        schema: str | None = None
+    ) -> list[dict]:
         self.logger.info(f"Updating records in table '{table_name}' by filter")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -773,12 +757,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to update records by filter in '{table_name}': {e}", exc_info=True)
             raise
 
-    async def delete_many(
-        self,
-        table_name: str,
-        match_list: list[dict[str, Any]],
-        schema: str | None = None,
-    ) -> list[dict[str, Any]]:
+    async def delete_many(self, table_name: str, match_list: list[dict], schema: str | None = None) -> list[dict]:
         self.logger.info(f"Deleting {len(match_list)} records from table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
@@ -819,12 +798,7 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to delete {len(match_list)} records from '{table_name}': {e}", exc_info=True)
             raise
 
-    async def delete_by_filter(
-        self,
-        table_name: str,
-        filter: dict[str, Any],
-        schema: str | None = None,
-    ) -> list[dict[str, Any]]:
+    async def delete_by_filter(self, table_name: str, filter: dict, schema: str | None = None) -> list[dict]:
         self.logger.info(f"Deleting records from table '{table_name}' by filter")
         filter_str = str(filter)
         self.logger.debug(f"filter: {truncate(filter_str, PostgresWriter.MAX_FILTER_LENGTH)}")
