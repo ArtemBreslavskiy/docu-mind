@@ -13,7 +13,8 @@ document_processor:
     - "text"
     - "xaml"
   documents_store:
-    type: "postgres"
+    reader:
+
 
 vectors_builder:
   type: "default"
@@ -36,15 +37,16 @@ graph_builder:
     device: "cuda"
   llm:
     provider: "ollama"
-    model: "gpt-oss:120b-cloud"
+    model: "llama3.1:8b"
     temperature: 0.0
     base_url: "http://localhost:11434"
     max_tokens: 512
+    num_ctx: 8192
 
 retriever:
   type: "dense"
   filter_oversample_factor: 4
-  vector_storage:
+  vector_store:
     type: "faiss"
   embedder:
     type: "sentence_transformer"

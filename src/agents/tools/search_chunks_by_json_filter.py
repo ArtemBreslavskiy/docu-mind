@@ -2,7 +2,7 @@ import asyncio
 import json
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field, field_validator
-from retrievers.base import BaseRetriever
+from core.retrievers.base import BaseRetriever
 
 
 class SearchChunksByJSONFilterInput(BaseModel):

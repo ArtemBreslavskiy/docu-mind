@@ -1,15 +1,10 @@
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import BaseTool
-from retrievers.base import BaseRetriever
-from agents.tools.search_chunks import SearchChunksTool
-from agents.tools.search_chunks_by_field import SearchChunksByFieldTool
-from agents.tools.search_chunks_by_json_filter import SearchChunksByJSONFilterTool
-from agents.tools.list_metadata import ListMetadataTool
-from agents.tools.fetch_full_document import FetchFullDocumentTool
-from agents.tools.list_documents import ListDocumentsTool
-from agents.tools.summarize_document import SummarizeDocumentTool
-from agents.tools.ask_clarification import AskClarificationTool
-from configs.schemas.agent.agent import AgentConfig, ToolConfig
+from core.retrievers.base import BaseRetriever
+from src.agents.tools.search_chunks import SearchChunksTool
+from src.agents.tools.search_chunks_by_field import SearchChunksByFieldTool
+from src.agents.tools.search_chunks_by_json_filter import SearchChunksByJSONFilterTool
+from src.configs.schemas.agent.agent import AgentConfig, ToolConfig
 
 
 def create_tools(config: AgentConfig, retriever: BaseRetriever, llm: BaseChatModel = None) -> list[BaseTool]:
@@ -22,11 +17,6 @@ def create_tools(config: AgentConfig, retriever: BaseRetriever, llm: BaseChatMod
         "search_chunks": lambda cfg: SearchChunksTool(description=cfg.prompt, retriever=retriever),
         "search_chunks_by_field": lambda cfg: SearchChunksByFieldTool(description=cfg.prompt, retriever=retriever),
         "search_chunks_by_json_filter": lambda cfg: SearchChunksByJSONFilterTool(description=cfg.prompt, retriever=retriever),
-        "list_metadata": lambda cfg: ListMetadataTool(description=cfg.prompt, store=retriever.store),
-        "fetch_full_document": lambda cfg: FetchFullDocumentTool(description=cfg.prompt),
-        "list_documents": lambda cfg: ListDocumentsTool(description=cfg.prompt),
-        "summarize_document": lambda cfg: SummarizeDocumentTool(description=cfg.prompt, llm=llm) if llm else None,
-        "ask_clarification": lambda cfg: AskClarificationTool(description=cfg.prompt),
     }
 
     tools = []

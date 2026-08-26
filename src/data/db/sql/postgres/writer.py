@@ -4,12 +4,12 @@ from typing import Any
 from functools import partial
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import tuple_, MetaData, Table, update, delete, case, text, PrimaryKeyConstraint, UniqueConstraint
-from src.data.db.sql.base import BaseSQLWriter, SQLUpdate
+from src.data.db.sql.base import ISQLWriter, SQLUpdate
 from src.data.db.sql.postgres.client import PostgresAsyncClient
 from src.utils.truncate import truncate
 
 
-class PostgresWriter(BaseSQLWriter):
+class PostgresWriter(ISQLWriter):
     WRITE_TYPES = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "MERGE"}
     ALLOWED_FILTER_OPS = {"gt", "lt", "gte", "lte", "ne", "in", "isnull", "like", "ilike"}
     MAX_VALIDATION_ERRORS = 20
@@ -26,7 +26,7 @@ class PostgresWriter(BaseSQLWriter):
         default_schema: str = "public", **kwargs
     ):
         super().__init__(**kwargs)
-        self.client = client
+        self._client = client
         self.logger = logger or client.logger
         self.metadata = MetaData()
         self.default_schema = default_schema
@@ -277,7 +277,10 @@ class PostgresWriter(BaseSQLWriter):
         return checks
 
     @staticmethod
-    def _validate_update_data_partials(table: Table, update_data: dict[str, Any] | list[dict[str, Any]]) -> list[partial]:
+    def _validate_update_data_partials(
+        table: Table,
+        update_data: dict[str, Any] | list[dict[str, Any]]
+    ) -> list[partial]:
         return [
             partial(PostgresWriter._validate_dict_exist, update_data, "Update data"),
             partial(PostgresWriter._validate_dict_not_contains_extra_names, table, update_data, "Update data"),
@@ -419,11 +422,7 @@ class PostgresWriter(BaseSQLWriter):
             self._tables_cache[cache_key] = table
         return self._tables_cache[cache_key]
 
-    async def write_query(
-        self,
-        query: str,
-        params: dict[str, Any] | list[dict[str, Any]] | None = None,
-    ) -> list[dict[str, Any]]:
+    async def execute(self, query: str, params: dict | None = None) -> list[dict]:
         self.logger.debug(f"Executing raw write query")
         try:
             self._validate_write_query(query)
@@ -438,11 +437,6 @@ class PostgresWriter(BaseSQLWriter):
         except Exception as e:
             self.logger.error(f"Write query failed: {e}", exc_info=True)
             raise
-
-    async def close(self) -> None:
-        self.logger.debug("Closing PostgresWriter client")
-        await self._client.close()
-        self.logger.debug("PostgresWriter client closed")
 
     async def create_one(self, table_name: str, data: dict[str, Any], schema: str | None = None) -> dict[str, Any]:
         self.logger.info(f"Creating one record in table '{table_name}'")
@@ -788,7 +782,8 @@ class PostgresWriter(BaseSQLWriter):
         self.logger.info(f"Deleting {len(match_list)} records from table '{table_name}'")
         self.logger.debug(
             f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
-            f"first match item='{truncate(str(match_list[0]), PostgresWriter.MAX_MATCH_LENGTH) if match_list else None}'"
+            f"first match item='{truncate(str(match_list[0]), PostgresWriter.MAX_MATCH_LENGTH) 
+            if match_list else None}'"
         )
 
         try:

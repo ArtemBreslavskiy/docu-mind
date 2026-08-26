@@ -1,9 +1,18 @@
 from pydantic import BaseModel
+from typing import Literal
 
 
-class BaseWriterConfig(BaseModel):
-    enable: bool = False
+class BaseSQLWriterConfig(BaseModel):
+    model_config = {"extra": "forbid"}
+    type: str
 
 
-class PostgresWriterConfig(BaseWriterConfig):
-    enable: bool = False
+class DisabledSQLWriterConfig(BaseSQLWriterConfig):
+    type: Literal["disabled"]
+
+
+class PostgresWriterConfig(BaseSQLWriterConfig):
+    type: Literal["postgres"]
+    env_key: str
+    name: str
+    description: str

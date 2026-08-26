@@ -2,13 +2,14 @@ from logging import Logger
 from typing import Any, Callable
 from sqlalchemy import Executable
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
-from src.data.db.base import BaseDBTransactionManager
+from sqlalchemy import text
+from src.data.db.sql.base import ISQLClient
 from sqlalchemy.engine import Result
 from src.utils.truncate import truncate
 from src.utils.logger_setup import get_null_logger
 
 
-class PostgresAsyncClient(BaseDBTransactionManager):
+class PostgresAsyncClient(ISQLClient):
     MAX_SQL_REQUEST_LENGTH_TO_LOG = 500
     MAX_SQL_PARAMS_LENGTH_TO_LOG = 500
 
@@ -37,15 +38,139 @@ class PostgresAsyncClient(BaseDBTransactionManager):
             self.engine = create_async_engine(url, echo=False, pool_pre_ping=True)
             self._owns_engine = True
         self._conn: AsyncConnection | None = None
+        self._in_tx: bool = False
 
     async def _get_conn(self) -> AsyncConnection:
         if self._conn is not None:
             return self._conn
+        self.logger.debug("Creating temporary connection for one-off operation")
         try:
             return await self.engine.connect()
         except Exception as e:
             self.logger.error(f"Failed to establish database connection: {e}", exc_info=True)
             raise
+
+    async def connect(self) -> None:
+        if self._conn is not None:
+            self.logger.debug("Connection already established")
+            return
+        self._conn = await self._get_conn()
+        self._in_tx = False
+        self.logger.debug("Connection established")
+
+    async def close(self) -> None:
+        self.logger.debug("Closing PostgresAsyncClient...")
+        error_lines = []
+        closed_connection = False
+        disposed_engine = False
+
+        if self._conn is not None:
+            try:
+                await self._conn.close()
+            except Exception as e:
+                self.logger.error(f"Error while closing connection: {e}", exc_info=True)
+                error_lines.append(str(e))
+            finally:
+                self._conn = None
+            closed_connection = True
+            self.logger.debug("Closed active database connection")
+        else:
+            self.logger.debug("No active connection to close")
+
+        if self._owns_engine and self.engine is not None:
+            try:
+                await self.engine.dispose()
+            except Exception as e:
+                self.logger.error(f"Error while disposing engine: {e}", exc_info=True)
+                error_lines.append(str(e))
+            finally:
+                self.engine = None
+            disposed_engine = True
+            self.logger.debug("Disposed owned async engine")
+        else:
+            self.logger.debug("Engine is not owned, skipping disposal")
+
+        if closed_connection or disposed_engine:
+            self.logger.info("PostgresAsyncClient resources released successfully")
+        else:
+            self.logger.info("PostgresAsyncClient closed (no resources to release)")
+
+        if error_lines:
+            raise RuntimeError("\n".join(error_lines))
+
+    async def ping(self) -> bool:
+        try:
+            async with self.engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return True
+        except Exception as e:
+            self.logger.error(f"Ping failed: {e}", exc_info=True)
+            return False
+
+    async def begin_transaction(self) -> None:
+        if self._in_tx:
+            raise RuntimeError("Transaction already in progress")
+        if self._conn is not None:
+            self._in_tx = True
+            self.logger.debug("Using existing connection for transaction")
+        else:
+            self._conn = await self._get_conn()
+            self._in_tx = True
+            self.logger.debug("New connection for transaction")
+
+    async def commit_transaction(self) -> None:
+        self.logger.debug("Committing transaction...")
+        if self._conn is None:
+            raise RuntimeError("No active transaction")
+        error_lines = []
+
+        try:
+            await self._conn.commit()
+            self.logger.debug("Transaction committed successfully")
+
+        except Exception as e:
+            self.logger.error(f"Commit failed: {e}", exc_info=True)
+            error_lines.append(str(e))
+
+        finally:
+            try:
+                await self._conn.close()
+            except Exception as e:
+                self.logger.error(f"Error while closing connection after commit: {e}", exc_info=True)
+                error_lines.append(str(e))
+            finally:
+                self._conn = None
+                self._in_tx = False
+
+        if error_lines:
+            raise RuntimeError("\n".join(error_lines))
+
+    async def rollback_transaction(self) -> None:
+        self.logger.debug("Rolling back transaction...")
+        if self._conn is None:
+            raise RuntimeError("No active transaction")
+        error_lines = []
+
+        try:
+            await self._conn.rollback()
+            self.logger.debug("Transaction rolled back successfully")
+
+        except Exception as e:
+            self.logger.error(f"Failed to rollback transaction: {e}", exc_info=True)
+            error_lines.append(str(e))
+
+        finally:
+            try:
+                await self._conn.close()
+            except Exception as e:
+                self.logger.error(f"Error while closing connection after rollback: {e}", exc_info=True)
+                error_lines.append(str(e))
+            finally:
+                self._conn = None
+                self._in_tx = False
+
+        if error_lines:
+            raise RuntimeError("\n".join(error_lines))
 
     async def execute(
         self,
@@ -110,106 +235,3 @@ class PostgresAsyncClient(BaseDBTransactionManager):
         finally:
             if self._conn is None:
                 await conn.close()
-
-    async def begin_transaction(self) -> None:
-        self.logger.debug("Starting transaction...")
-        try:
-            if self._conn is not None:
-                raise RuntimeError("Transaction already started")
-            self._conn = await self.engine.connect()
-            self.logger.debug("Transaction started successfully")
-        except Exception as e:
-            self.logger.error(f"Failed to begin transaction: {e}", exc_info=True)
-            raise
-
-    async def commit_transaction(self) -> None:
-        self.logger.debug("Committing transaction...")
-        if self._conn is None:
-            raise RuntimeError("No active transaction")
-        error_lines = []
-
-        try:
-            await self._conn.commit()
-            self.logger.debug("Transaction committed successfully")
-
-        except Exception as e:
-            self.logger.error(f"Commit failed: {e}", exc_info=True)
-            error_lines.append(str(e))
-
-        finally:
-            try:
-                await self._conn.close()
-            except Exception as e:
-                self.logger.error(f"Error while closing connection after commit: {e}", exc_info=True)
-                error_lines.append(str(e))
-            finally:
-                self._conn = None
-
-        if error_lines:
-            raise RuntimeError("\n".join(error_lines))
-
-    async def rollback_transaction(self) -> None:
-        self.logger.debug("Rolling back transaction...")
-        if self._conn is None:
-            raise RuntimeError("No active transaction")
-        error_lines = []
-
-        try:
-            await self._conn.rollback()
-            self.logger.debug("Transaction rolled back successfully")
-
-        except Exception as e:
-            self.logger.error(f"Failed to rollback transaction: {e}", exc_info=True)
-            error_lines.append(str(e))
-
-        finally:
-            try:
-                await self._conn.close()
-            except Exception as e:
-                self.logger.error(f"Error while closing connection after rollback: {e}", exc_info=True)
-                error_lines.append(str(e))
-            finally:
-                self._conn = None
-
-        if error_lines:
-            raise RuntimeError("\n".join(error_lines))
-
-    async def close(self) -> None:
-        self.logger.debug("Closing PostgresAsyncClient...")
-        error_lines = []
-        closed_connection = False
-        disposed_engine = False
-
-        if self._conn is not None:
-            try:
-                await self._conn.close()
-            except Exception as e:
-                self.logger.error(f"Error while closing connection: {e}", exc_info=True)
-                error_lines.append(str(e))
-            finally:
-                self._conn = None
-            closed_connection = True
-            self.logger.debug("Closed active database connection")
-        else:
-            self.logger.debug("No active connection to close")
-
-        if self._owns_engine and self.engine is not None:
-            try:
-                await self.engine.dispose()
-            except Exception as e:
-                self.logger.error(f"Error while disposing engine: {e}", exc_info=True)
-                error_lines.append(str(e))
-            finally:
-                self.engine = None
-            disposed_engine = True
-            self.logger.debug("Disposed owned async engine")
-        else:
-            self.logger.debug("Engine is not owned, skipping disposal")
-
-        if closed_connection or disposed_engine:
-            self.logger.info("PostgresAsyncClient resources released successfully")
-        else:
-            self.logger.info("PostgresAsyncClient closed (no resources to release)")
-
-        if error_lines:
-            raise RuntimeError("\n".join(error_lines))

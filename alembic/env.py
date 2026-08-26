@@ -7,18 +7,31 @@ from alembic import context
 
 import os
 from dotenv import load_dotenv
-from documents_stores.models import Base
+from data.models import Base
 
 
 load_dotenv()
 
-FULLTEXT_HOST = os.getenv("FULLTEXT_HOST", "localhost")
-FULLTEXT_PORT = os.getenv("FULLTEXT_PORT", "5432")
-FULLTEXT_DB = os.getenv("FULLTEXT_DB", "documind")
-FULLTEXT_USER = os.getenv("FULLTEXT_USER", "documind_user")
-FULLTEXT_PASSWORD = os.getenv("FULLTEXT_PASSWORD", "strong_password")
+host = os.getenv("FULLTEXT_HOST", None)
+port = os.getenv("FULLTEXT_PORT", None)
+db = os.getenv("FULLTEXT_DB", None)
+user = os.getenv("FULLTEXT_USER", None)
+password = os.getenv("FULLTEXT_PASSWORD", None)
 
-DATABASE_URL = f"postgresql://{FULLTEXT_USER}:{FULLTEXT_PASSWORD}@{FULLTEXT_HOST}:{FULLTEXT_PORT}/{FULLTEXT_DB}"
+missing = []
+if not host:
+    missing.append("FULLTEXT_HOST")
+if not port:
+    missing.append("FULLTEXT_PORT")
+if not db:
+    missing.append("FULLTEXT_DB")
+if not user:
+    missing.append("FULLTEXT_USER")
+if not password:
+    missing.append("FULLTEXT_PASSWORD")
+if missing:
+    raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -54,7 +67,7 @@ def run_migrations_offline() -> None:
 
     """
     context.configure(
-        url=DATABASE_URL,
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -71,7 +84,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = create_engine(DATABASE_URL, poolclass=pool.NullPool)
+    connectable = create_engine(url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(

@@ -8,11 +8,11 @@ class BaseChunkerConfig(BaseModel):
 
 
 class DisabledChunkerConfig(BaseChunkerConfig):
-    type: Literal["disabled"]
+    type: Literal["disabled"] = "disabled"
 
 
 class RecursiveChunkerConfig(BaseChunkerConfig):
-    type: Literal["recursive"]
+    type: Literal["recursive"] = "recursive"
     chunk_size: int = Field(512, ge=128, le=4096)
     chunk_overlap: int = Field(64, ge=0, le=1024)
     separators: list[str] = ["\n\n", "\n", ". ", " ", ""]

@@ -1,7 +1,7 @@
-from abc import abstractmethod, ABC
+from abc import abstractmethod
 from typing import Any
 from pydantic import BaseModel
-from src.data.db.base import BaseReader, BaseWriter
+from src.data.db.base import IConnection, ITransactional, ILanguageExecutor, IHaveSchema
 
 
 class SQLUpdate(BaseModel):
@@ -9,11 +9,15 @@ class SQLUpdate(BaseModel):
     update_data: dict[str, Any]
 
 
-class BaseSQLReader(BaseReader):
-    ...
+class ISQLClient(IConnection, ITransactional):
+    pass
 
 
-class BaseSQLWriter(ABC, BaseWriter):
+class ISQLReader(ILanguageExecutor, IHaveSchema):
+    pass
+
+
+class ISQLWriter(ILanguageExecutor):
     @abstractmethod
     async def create_one(self, table_name: str, data: dict[str, Any]) -> dict[str, Any]:
         ...

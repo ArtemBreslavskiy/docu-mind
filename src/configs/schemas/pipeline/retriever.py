@@ -1,5 +1,5 @@
-import src.configs.schemas.pipeline.vector_store as vector_store
-import configs.schemas.pipeline.embedder as embedder
+import configs.schemas.pipeline.vector.vector_store as vector_stores
+import src.configs.schemas.pipeline.embedder as embedders
 from pydantic import BaseModel, Field
 from typing import Literal, Union
 
@@ -17,10 +17,10 @@ class DenseRetrieverConfig(BaseRetrieverConfig):
     type: Literal["dense"]
     filter_oversample_factor: int = Field(4, ge=2, le=10)
     vector_store: Union[
-        vector_store.DisabledVectorStoreConfig,
-        vector_store.FAISSVectorStoreConfig,
+        vector_stores.DisabledVectorStoreConfig,
+        vector_stores.FAISSVectorStoreConfig,
     ] = Field(discriminator="type")
     embedder: Union[
-        embedder.DisabledEmbedderConfig,
-        embedder.SentenceTransformerEmbedderConfig,
+        embedders.DisabledEmbedderConfig,
+        embedders.SentenceTransformerEmbedderConfig,
     ] = Field(discriminator="type")

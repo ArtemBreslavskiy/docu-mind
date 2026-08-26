@@ -8,7 +8,7 @@ class BaseClientConfig(BaseModel):
 
 
 class DisabledClientConfig(BaseClientConfig):
-    type: Literal["disabled"]
+    provider: Literal["disabled"]
 
 
 class OllamaClientConfig(BaseClientConfig):
@@ -17,6 +17,7 @@ class OllamaClientConfig(BaseClientConfig):
     temperature: float = Field(0.1, ge=0, le=2)
     max_tokens: int = Field(512, gt=0, le=4096)
     base_url: str = "http://localhost:11434"
+    num_ctx: int = Field(8192, gt=0)
 
 
 class OpenAiClientConfig(BaseClientConfig):

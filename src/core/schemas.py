@@ -1,0 +1,12 @@
+from pydantic import BaseModel
+from typing import Any, Optional
+from langchain_core.documents import Document as LCDocument
+
+
+class Document(BaseModel):
+    content: str
+    description: str
+    metadata: dict[str, Any]
+
+    def to_langchain_document(self) -> LCDocument:
+        return LCDocument(page_content=self.content, metadata=self.metadata)

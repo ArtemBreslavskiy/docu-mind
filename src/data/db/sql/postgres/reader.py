@@ -1,14 +1,13 @@
 import sqlparse
 from logging import Logger
 from sqlalchemy import inspect
-from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from src.data.db.sql.base import BaseSQLReader
+from src.data.db.sql.base import ISQLReader
 from src.data.db.sql.postgres.client import PostgresAsyncClient
 
 
-class PostgresReader(BaseSQLReader):
+class PostgresReader(ISQLReader):
     READ_TYPES = {"SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN"}
 
     def __init__(self, client: PostgresAsyncClient, logger: Logger | None = None, **kwargs):
@@ -25,7 +24,7 @@ class PostgresReader(BaseSQLReader):
             if stmt.get_type() not in PostgresReader.READ_TYPES:
                 raise ValueError(f"Read-only query expected, got: {stmt.get_type()}")
 
-    async def read_query(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    async def execute(self, query: str, params: dict | None = None) -> list[dict]:
         self.logger.debug(f"Executing read query")
         try:
             self._validate_read_only_query(query)
@@ -82,8 +81,3 @@ class PostgresReader(BaseSQLReader):
         except Exception as e:
             self.logger.error(f"Failed to get schema info: {e}", exc_info=True)
             raise
-
-    async def close(self) -> None:
-        self.logger.debug("Closing PostgresReader client")
-        await self._client.close()
-        self.logger.debug("PostgresReader client closed")

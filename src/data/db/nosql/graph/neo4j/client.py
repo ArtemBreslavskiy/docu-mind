@@ -34,7 +34,6 @@ class Neo4jAsyncClient(BaseDBTransactionManager):
         else:
             self._driver = AsyncGraphDatabase.driver(url, auth=None)
             self._owns_driver = True
-        self._unique_cache: dict[tuple, bool] = {}
         self._session: AsyncSession | None = None
         self._tx: AsyncTransaction | None = None
 

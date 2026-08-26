@@ -1,9 +1,9 @@
 import yaml
 from pathlib import Path
-from configs.schemas.agent.agent import AgentConfig
-from configs.schemas.app.app import AppConfig
-from configs.schemas.logging.logging import LoggingConfig
-from configs.schemas.pipeline.pipeline import PipelineConfig
+from src.configs.schemas.agent.agent import AgentConfig
+from src.configs.schemas.app.app import AppConfig
+from src.configs.schemas.logging.logging import LoggingConfig
+from src.configs.schemas.pipeline.pipeline import PipelineConfig
 
 
 def load_agent_config(path: str | Path) -> AgentConfig:

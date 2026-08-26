@@ -2,11 +2,11 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, BaseMessage, SystemMessage
 from paths.project_paths import ProjectPaths
 from src.configs.loader import load_app_config, load_agent_config, load_pipeline_config
-from embedders.implementations.sentence_transformer_embedder import SentenceTransformerEmbedder
-from vector_stores.factory import create_vector_store
-from retrievers.factory import create_retriever
-from agents.factory import create_agent
-from src.logger.logger_setup import get_logger
+from core.embedders.sentence_transformer_embedder import SentenceTransformerEmbedder
+from data.vector_db.factory import create_vector_store
+from utils.factories.retrievers import create_retriever
+from utils.factories.agent import create_agent
+from utils.logger_setup import get_logger
 
 
 def query_agent():
