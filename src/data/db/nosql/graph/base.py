@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from pydantic import BaseModel
 from src.data.db.base import ILanguageExecutor, IHaveSchema
+from src.data.db.filter import FilterCondition, FilterGroup, Operator
 
 
 class NodeCreate(BaseModel):
@@ -54,11 +55,15 @@ class BaseGraphWriter(ILanguageExecutor):
     @abstractmethod
     async def update_many_nodes(self, updates: list[NodeUpdate]) -> list[str]: ...
     @abstractmethod
-    async def update_many_nodes_by_filter(self, update_properties: dict, filter: dict) -> list[str]: ...
+    async def update_many_nodes_by_filter(
+        self,
+        update_properties: dict,
+        filter: FilterCondition | FilterGroup,
+    ) -> list[str]: ...
     @abstractmethod
     async def delete_many_nodes(self, match_list: list[dict]) -> list[str]: ...
     @abstractmethod
-    async def delete_many_nodes_by_filter(self, filter: dict) -> list[str]: ...
+    async def delete_many_nodes_by_filter(self, filter: FilterCondition | FilterGroup) -> list[str]: ...
     @abstractmethod
     async def create_one_relationship(
         self,
@@ -91,9 +96,13 @@ class BaseGraphWriter(ILanguageExecutor):
     @abstractmethod
     async def update_many_relationships(self, updates: list[RelationshipUpdate]) -> list[str]: ...
     @abstractmethod
-    async def update_many_relationships_by_filter(self, update_properties: dict, filter: dict) -> list[str]: ...
+    async def update_many_relationships_by_filter(
+        self,
+        update_properties: dict,
+        filter: FilterCondition | FilterGroup,
+    ) -> list[str]: ...
     @abstractmethod
     async def delete_many_relationships(self, match_list: list[dict]) -> list[str]: ...
     @abstractmethod
-    async def delete_many_relationships_by_filter(self, filter: dict) -> list[str]: ...
+    async def delete_many_relationships_by_filter(self, filter: FilterCondition | FilterGroup) -> list[str]: ...
 

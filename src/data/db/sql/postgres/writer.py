@@ -3,15 +3,15 @@ from logging import Logger
 from typing import Any
 from functools import partial
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import tuple_, MetaData, Table, update, delete, case, text, PrimaryKeyConstraint, UniqueConstraint
+from sqlalchemy import tuple_, MetaData, Table, update, delete, case, text, PrimaryKeyConstraint, UniqueConstraint, or_, and_
 from src.data.db.sql.base import ISQLWriter, SQLUpdate
+from src.data.db.filter import FilterCondition, FilterGroup, Operator
 from src.data.db.sql.postgres.client import PostgresAsyncClient
 from src.utils.truncate import truncate
 
 
 class PostgresWriter(ISQLWriter):
     WRITE_TYPES = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "MERGE"}
-    ALLOWED_FILTER_OPS = {"gt", "lt", "gte", "lte", "ne", "in", "isnull", "like", "ilike"}
     MAX_VALIDATION_ERRORS = 20
     MAX_TABLE_NAME_LENGTH = 500
     MAX_DATA_LENGTH = 500
@@ -38,7 +38,7 @@ class PostgresWriter(ISQLWriter):
             return f"[Table '{table.name}'] Table has no primary key."
 
     @staticmethod
-    def _validate_dict_exist(data: dict[str, Any] | list[dict[str, Any]], context: str = "") -> str | None:
+    def _validate_dict_exist(data: dict | list[dict], context: str = "") -> str | None:
         prefix = f"[{context}] " if context else ""
         if not data:
             return f"{prefix}Data cannot be empty."
@@ -64,7 +64,7 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_dict_not_contains_pk(
         table: Table,
-        update_data: dict[str, Any] | list[dict[str, Any]],
+        update_data: dict | list[dict],
         context: str = "",
     ) -> str | None:
         prefix = f"[{context}, Table '{table.name}'] " if context else f"[Table '{table.name}'] "
@@ -100,7 +100,7 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_dict_not_contains_extra_names(
         table: Table,
-        data: dict[str, Any] | list[dict[str, Any]],
+        data: dict | list[dict],
         context: str = "",
     ) -> str | None:
         prefix = f"[{context}, Table '{table.name}'] " if context else f"[Table '{table.name}'] "
@@ -123,7 +123,7 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_dict_contains_values_for_not_null_columns(
         table: Table,
-        data: dict[str, Any] | list[dict[str, Any]],
+        data: dict | list[dict],
         context: str = "",
     ) -> str | None:
         prefix = f"[{context}, Table '{table.name}'] " if context else f"[Table '{table.name}'] "
@@ -163,7 +163,7 @@ class PostgresWriter(ISQLWriter):
             return f"{prefix} NOT NULL validation failed:\n" + "\n".join(error_lines)
 
     @staticmethod
-    def _validate_dict_contains_consistent_keys(data_list: list[dict[str, Any]], context: str = "") -> str | None:
+    def _validate_dict_contains_consistent_keys(data_list: list[dict], context: str = "") -> str | None:
         prefix = f"[{context}] " if context else ""
         first_keys = set(data_list[0].keys())
         error_lines = []
@@ -223,15 +223,7 @@ class PostgresWriter(ISQLWriter):
                 return f"{prefix}No UNIQUE or PRIMARY KEY constraint found for column: {columns}"
 
     @staticmethod
-    def _validate_operators_in_filter(filter: dict[str, Any]) -> str | None:
-        for key in filter.keys():
-            if "__" in key:
-                operator = key.split("__")[1]
-                if operator not in PostgresWriter.ALLOWED_FILTER_OPS:
-                    return f"[Filter] Unsupported operator '{operator}' in key '{key}'."
-
-    @staticmethod
-    def _validate_match_not_contains_duplicates(match: list[dict[str, Any]]) -> str | None:
+    def _validate_match_not_contains_duplicates(match: list[dict]) -> str | None:
         seen = {}
         duplicates = []
         for i, item in enumerate(match):
@@ -242,6 +234,48 @@ class PostgresWriter(ISQLWriter):
                 seen[key] = i
         if duplicates:
             return f"[Match] Duplicate match conditions found: {', '.join(duplicates)}"
+
+    @staticmethod
+    def _validate_filter_exist(filter: FilterCondition | FilterGroup) -> str | None:
+        error_lines = []
+
+        def collect(cond, path: str = ""):
+            if isinstance(cond, FilterCondition):
+                if not cond.field:
+                    error_lines.append(f"{path}Field name cannot be empty")
+            elif isinstance(cond, FilterGroup):
+                if not cond.conditions:
+                    error_lines.append(f"{path}Filter group cannot be empty")
+                else:
+                    for i, sub in enumerate(cond.conditions):
+                        collect(sub, f"{path}[{i}]")
+            else:
+                error_lines.append(f"{path}Unsupported condition type: {type(cond)}")
+
+        collect(filter)
+        if error_lines:
+            return "[Filter] Filter validation errors:\n" + "\n".join(error_lines)
+
+    @staticmethod
+    def _validate_filter_columns_in_table(table: Table, filter: FilterCondition | FilterGroup) -> str | None:
+        error_lines = []
+
+        def collect(cond, path: str = ""):
+            if isinstance(cond, FilterCondition):
+                err = PostgresWriter._validate_columns_in_table(
+                    table, cond.field, context=f"{path}field"
+                )
+                if err:
+                    error_lines.append(err)
+            elif isinstance(cond, FilterGroup):
+                for i, sub in enumerate(cond.conditions):
+                    collect(sub, f"{path}[{i}]")
+            else:
+                error_lines.append(f"{path}Unsupported condition type: {type(cond)}")
+
+        collect(filter)
+        if error_lines:
+            return "[Filter] Filter validation errors:\n" + "\n".join(error_lines)
 
     @staticmethod
     def _validate_write_query(query: str) -> None:
@@ -266,7 +300,7 @@ class PostgresWriter(ISQLWriter):
             raise ValueError(error_lines[0])
 
     @staticmethod
-    def _validate_data_partials(table: Table, data: dict[str, Any] | list[dict[str, Any]]) -> list[partial]:
+    def _validate_data_partials(table: Table, data: dict | list[dict]) -> list[partial]:
         checks = [
             partial(PostgresWriter._validate_dict_exist, data, "Data"),
             partial(PostgresWriter._validate_dict_not_contains_extra_names, table, data, "Data"),
@@ -279,7 +313,7 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_update_data_partials(
         table: Table,
-        update_data: dict[str, Any] | list[dict[str, Any]]
+        update_data: dict | list[dict]
     ) -> list[partial]:
         return [
             partial(PostgresWriter._validate_dict_exist, update_data, "Update data"),
@@ -296,7 +330,7 @@ class PostgresWriter(ISQLWriter):
         ]
 
     @staticmethod
-    def _validate_match_partials(table: Table, match: dict[str, Any] | list[dict[str, Any]]) -> list[partial]:
+    def _validate_match_partials(table: Table, match: dict | list[dict]) -> list[partial]:
         if isinstance(match, dict):
             columns = list(match.keys())
         else:
@@ -314,15 +348,14 @@ class PostgresWriter(ISQLWriter):
         return checks
 
     @staticmethod
-    def _validate_filter_partials(table: Table, filter: dict[str, Any]) -> list[partial]:
+    def _validate_filter_partials(table: Table, filter: FilterCondition | FilterGroup) -> list[partial]:
         return [
-            partial(PostgresWriter._validate_dict_exist, filter, "Filter"),
-            partial(PostgresWriter._validate_columns_in_table, table, list(filter.keys()), "Filter"),
-            partial(PostgresWriter._validate_operators_in_filter, filter),
+            partial(PostgresWriter._validate_filter_exist, filter),
+            partial(PostgresWriter._validate_filter_columns_in_table, table, filter),
         ]
 
     @staticmethod
-    def _validate_create_operation(table: Table, data: dict[str, Any] | list[dict[str, Any]]) -> None:
+    def _validate_create_operation(table: Table, data: dict | list[dict]) -> None:
         checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
         checks.extend(PostgresWriter._validate_data_partials(table, data))
         PostgresWriter._run_validation(checks)
@@ -330,7 +363,7 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_upsert_operation(
         table: Table,
-        data: dict[str, Any] | list[dict[str, Any]],
+        data: dict | list[dict],
         conflict_columns: list[str] | None = None,
     ) -> None:
         checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
@@ -342,9 +375,9 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_update_operation(
         table: Table,
-        update_data: dict[str, Any] | list[dict[str, Any]],
-        match: dict[str, Any] | list[dict[str, Any]] | None = None,
-        filter: dict[str, Any] | None = None,
+        update_data: dict | list[dict],
+        match: dict | list[dict] | None = None,
+        filter: FilterCondition | FilterGroup | None = None,
     ) -> None:
         checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
         checks.extend(PostgresWriter._validate_update_data_partials(table, update_data))
@@ -358,7 +391,7 @@ class PostgresWriter(ISQLWriter):
     def _validate_delete_operation(
         table: Table,
         match: dict[str, Any] | list[dict[str, Any]] | None = None,
-        filter: dict[str, Any] | None = None,
+        filter: FilterCondition | FilterGroup | None = None,
     ) -> None:
         checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
         if match:
@@ -368,42 +401,51 @@ class PostgresWriter(ISQLWriter):
         PostgresWriter._run_validation(checks)
 
     @staticmethod
-    def _build_where_conditions(table: Table, filter: dict[str, Any]) -> list:
-        conditions = []
-        for key, value in filter.items():
-            parts = key.split("__")
-            col_name = parts[0]
-            operator = parts[1] if len(parts) > 1 else "eq"
-            column = table.c[col_name]
-
-            if operator == "eq":
-                conditions.append(column == value)
-            elif operator == "gt":
-                conditions.append(column > value)
-            elif operator == "lt":
-                conditions.append(column < value)
-            elif operator == "gte":
-                conditions.append(column >= value)
-            elif operator == "lte":
-                conditions.append(column <= value)
-            elif operator == "in":
-                if not isinstance(value, list) or not value:
-                    raise ValueError(f"IN operator requires non-empty list")
-                conditions.append(column.in_(value))
-            elif operator == "isnull":
-                if value is True:
-                    conditions.append(column.is_(None))
+    def _build_where_conditions(table: Table, filter: FilterCondition | FilterGroup) -> Any:
+        def process(cond: FilterCondition | FilterGroup):
+            if isinstance(cond, FilterCondition):
+                column = table.c.get(cond.field)
+                if column is None:
+                    raise ValueError(f"Column '{cond.field}' not found in table '{table.name}'")
+                op = cond.operator
+                value = cond.value
+                if op == Operator.EQ:
+                    return column == value
+                elif op == Operator.GT:
+                    return column > value
+                elif op == Operator.LT:
+                    return column < value
+                elif op == Operator.GTE:
+                    return column >= value
+                elif op == Operator.LTE:
+                    return column <= value
+                elif op == Operator.NE:
+                    return column != value
+                elif op == Operator.IN:
+                    if not isinstance(value, list) or not value:
+                        raise ValueError("IN operator requires a non-empty list")
+                    return column.in_(value)
+                elif op == Operator.ISNULL:
+                    return column.is_(None) if value is True else column.isnot(None)
+                elif op == Operator.LIKE:
+                    return column.like(value)
+                elif op == Operator.ILIKE:
+                    return column.ilike(value)
                 else:
-                    conditions.append(column.isnot(None))
-            elif operator == "like":
-                conditions.append(column.like(value))
-            elif operator == "ilike":
-                conditions.append(column.ilike(value))
-            elif operator == "ne":
-                conditions.append(column != value)
+                    raise ValueError(f"Unsupported operator: {op}")
+
+            elif isinstance(cond, FilterGroup):
+                if not cond.conditions:
+                    return True
+                sub_conditions = [process(c) for c in cond.conditions]
+                if cond.operator == "AND":
+                    return and_(*sub_conditions)
+                else:
+                    return or_(*sub_conditions)
             else:
-                raise ValueError(f"Unsupported operator '{operator}'")
-        return conditions
+                raise TypeError(f"Unsupported condition type: {type(cond)}")
+
+        return process(filter)
 
     async def _get_table(self, table_name: str, schema: str | None = None) -> Table:
         schema = schema or self.default_schema
@@ -718,8 +760,8 @@ class PostgresWriter(ISQLWriter):
         self,
         table_name: str,
         update_data: dict,
-        filter: dict,
-        schema: str | None = None
+        filter: FilterCondition | FilterGroup,
+        schema: str | None = None,
     ) -> list[dict]:
         self.logger.info(f"Updating records in table '{table_name}' by filter")
         self.logger.debug(
@@ -736,7 +778,7 @@ class PostgresWriter(ISQLWriter):
             conditions = self._build_where_conditions(table, filter)
             stmt = (
                 update(table)
-                .where(*conditions)
+                .where(conditions)
                 .values(**update_data)
                 .returning(*pk_columns)
             )
@@ -798,7 +840,12 @@ class PostgresWriter(ISQLWriter):
             self.logger.error(f"Failed to delete {len(match_list)} records from '{table_name}': {e}", exc_info=True)
             raise
 
-    async def delete_by_filter(self, table_name: str, filter: dict, schema: str | None = None) -> list[dict]:
+    async def delete_by_filter(
+        self,
+        table_name: str,
+        filter: FilterCondition | FilterGroup,
+        schema: str | None = None,
+    ) -> list[dict]:
         self.logger.info(f"Deleting records from table '{table_name}' by filter")
         filter_str = str(filter)
         self.logger.debug(f"filter: {truncate(filter_str, PostgresWriter.MAX_FILTER_LENGTH)}")
@@ -811,7 +858,7 @@ class PostgresWriter(ISQLWriter):
             conditions = self._build_where_conditions(table, filter)
             stmt = (
                 delete(table)
-                .where(*conditions)
+                .where(conditions)
                 .returning(*pk_columns)
             )
             result = await self._client.execute(stmt)

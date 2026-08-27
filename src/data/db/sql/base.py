@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Any
 from pydantic import BaseModel
 from src.data.db.base import ILanguageExecutor, IHaveSchema
+from src.data.db.filter import FilterCondition, FilterGroup
 
 
 class SQLUpdate(BaseModel):
@@ -29,8 +30,13 @@ class ISQLWriter(ILanguageExecutor):
     @abstractmethod
     async def update_many(self, table_name: str, updates: list[SQLUpdate]) -> list[dict]: ...
     @abstractmethod
-    async def update_by_filter(self, table_name: str, update_data: dict, filter: dict) -> list[dict]: ...
+    async def update_by_filter(
+        self,
+        table_name: str,
+        update_data: dict,
+        filter: FilterCondition | FilterGroup
+    ) -> list[dict]: ...
     @abstractmethod
     async def delete_many(self, table_name: str, match_list: list[dict]) -> list[dict]: ...
     @abstractmethod
-    async def delete_by_filter(self, table_name: str, filter: dict) -> list[dict]: ...
+    async def delete_by_filter(self, table_name: str, filter: FilterCondition | FilterGroup) -> list[dict]: ...

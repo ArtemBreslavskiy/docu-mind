@@ -3,6 +3,7 @@ from functools import partial
 from logging import Logger
 from antlr4 import InputStream, CommonTokenStream
 from antlr4_cypher import CypherLexer, CypherParser
+from data.db.filter import FilterCondition, FilterGroup, Operator
 from src.data.db.nosql.graph.neo4j.client import Neo4jAsyncClient
 from src.data.db.nosql.graph.base import (
     BaseGraphWriter,
@@ -61,7 +62,7 @@ class Neo4jWriter(BaseGraphWriter):
                 return f"{prefix}Validation errors for strings:\n" + "\n".join(error_lines)
 
     @staticmethod
-    def _validate_dict_exist(data: dict[str, Any] | list[dict[str, Any]], context: str = "") -> str | None:
+    def _validate_dict_exist(data: dict | list[dict], context: str = "") -> str | None:
         prefix = f"[{context}] " if context else ""
         if not data:
             return f"{prefix}Data cannot be empty."
@@ -85,7 +86,7 @@ class Neo4jWriter(BaseGraphWriter):
                     return msg
 
     @staticmethod
-    def _validate_dict_contains_consistent_keys(data_list: list[dict[str, Any]], context: str = "") -> str | None:
+    def _validate_dict_contains_consistent_keys(data_list: list[dict], context: str = "") -> str | None:
         prefix = f"[{context}] " if context else ""
         first_keys = set(data_list[0].keys())
         error_lines = []
@@ -113,31 +114,24 @@ class Neo4jWriter(BaseGraphWriter):
 
     @staticmethod
     def _validate_all_conflict_properties_in_properties(
-        properties: dict[str, Any] | list[dict[str, Any]],
-        conflict_properties: list[str]
+            properties: dict | list[dict],
+            conflict_properties: list[str]
     ) -> str | None:
         error_lines = []
         if isinstance(properties, dict):
             for prop in conflict_properties:
                 if prop not in properties:
                     error_lines.append(f"Conflict property '{prop}' is missing in properties")
-                elif not properties[prop]:
-                    error_lines.append(f"Conflict property '{prop}' is empty")
-                if len(error_lines) >= Neo4jWriter.MAX_VALIDATION_ERRORS:
-                    error_lines.append("... (and more errors, truncated)")
-                    break
+                elif properties[prop] is None:
+                    error_lines.append(f"Conflict property '{prop}' is None")
 
         else:
             for i, item in enumerate(properties):
                 for prop in conflict_properties:
                     if prop not in item:
                         error_lines.append(f"[Item {i}] Conflict property '{prop}' is missing")
-                    elif not item[prop]:
-                        error_lines.append(f"[Item {i}] Conflict property '{prop}' is empty")
-                    if len(error_lines) >= Neo4jWriter.MAX_VALIDATION_ERRORS:
-                        error_lines.append("... (and more errors, truncated)")
-                        break
-
+                    elif item[prop] is None:
+                        error_lines.append(f"[Item {i}] Conflict property '{prop}' is None")
         if error_lines:
             return (
                 f"[Properties] Validation errors for conflict properties.\n"
@@ -146,7 +140,7 @@ class Neo4jWriter(BaseGraphWriter):
             )
 
     @staticmethod
-    def _validate_match_not_contains_duplicates(match: list[dict[str, Any]]) -> str | None:
+    def _validate_match_not_contains_duplicates(match: list[dict]) -> str | None:
         seen = {}
         duplicates = []
         for i, item in enumerate(match):
@@ -159,12 +153,25 @@ class Neo4jWriter(BaseGraphWriter):
             return f"[Match] Duplicate match conditions found: {', '.join(duplicates)}"
 
     @staticmethod
-    def _validate_operators_in_filter(filter: dict[str, Any]) -> str | None:
-        for key in filter.keys():
-            if "__" in key:
-                operator = key.split("__")[1]
-                if operator not in Neo4jWriter.ALLOWED_FILTER_OPS:
-                    return f"[Filter] Unsupported operator '{operator}' in key '{key}'."
+    def _validate_filter_exist(filter: FilterCondition | FilterGroup) -> str | None:
+        error_lines = []
+
+        def collect(cond, path: str = ""):
+            if isinstance(cond, FilterCondition):
+                if not cond.field:
+                    error_lines.append(f"{path}Field name cannot be empty")
+            elif isinstance(cond, FilterGroup):
+                if not cond.conditions:
+                    error_lines.append(f"{path}Filter group cannot be empty")
+                else:
+                    for i, sub in enumerate(cond.conditions):
+                        collect(sub, f"{path}[{i}]")
+            else:
+                error_lines.append(f"{path}Unsupported condition type: {type(cond)}")
+
+        collect(filter)
+        if error_lines:
+            return "[Filter] Filter validation errors:\n" + "\n".join(error_lines)
 
     @staticmethod
     def _validate_write_query(query: str) -> None:
@@ -218,11 +225,11 @@ class Neo4jWriter(BaseGraphWriter):
         return [partial(Neo4jWriter._validate_strings_exist, to_ids, "To ids")]
 
     @staticmethod
-    def _validate_properties_partials(properties: dict[str, Any] | list[dict[str, Any]]) -> list[partial]:
+    def _validate_properties_partials(properties: dict | list[dict]) -> list[partial]:
         return [partial(Neo4jWriter._validate_dict_exist, properties, "Properties")]
 
     @staticmethod
-    def _validate_update_properties_partials(update_properties: dict[str, Any] | list[dict[str, Any]]) -> list[partial]:
+    def _validate_update_properties_partials(update_properties: dict | list[dict]) -> list[partial]:
         return [partial(Neo4jWriter._validate_dict_exist, update_properties, "Update properties")]
 
     @staticmethod
@@ -230,7 +237,7 @@ class Neo4jWriter(BaseGraphWriter):
         return [partial(Neo4jWriter._validate_strings_exist, conflict_properties, "Conflict properties")]
 
     @staticmethod
-    def _validate_match_partials(match: dict[str, Any] | list[dict[str, Any]]) -> list[partial]:
+    def _validate_match_partials(match: dict | list[dict]) -> list[partial]:
         checks = [partial(Neo4jWriter._validate_dict_exist, match, "Match")]
         if isinstance(match, list):
             checks.extend([
@@ -240,10 +247,9 @@ class Neo4jWriter(BaseGraphWriter):
         return checks
 
     @staticmethod
-    def _validate_filter_partials(filter: dict[str, Any]):
+    def _validate_filter_partials(filter: FilterCondition | FilterGroup):
         return [
-            partial(Neo4jWriter._validate_dict_exist, filter, "Filter"),
-            partial(Neo4jWriter._validate_operators_in_filter, filter),
+            partial(Neo4jWriter._validate_filter_exist, filter),
         ]
 
     @staticmethod
@@ -252,7 +258,7 @@ class Neo4jWriter(BaseGraphWriter):
         rel_types: str | list[str] | None = None,
         from_ids: Any | list[Any] | None = None,
         to_ids: Any | list[Any] | None = None,
-        properties: dict[str, Any] | list[dict[str, Any]] | None = None
+        properties: dict | list[dict] | None = None
     ) -> None:
         checks = []
         if labels:
@@ -274,7 +280,7 @@ class Neo4jWriter(BaseGraphWriter):
         rel_types: str | list[str] | None = None,
         from_ids: Any | list[Any] | None = None,
         to_ids: Any | list[Any] | None = None,
-        properties: dict[str, Any] | list[dict[str, Any]] | None = None,
+        properties: dict | list[dict] | None = None,
         conflict_properties: list[str] | None = None,
     ) -> None:
         checks = []
@@ -300,9 +306,9 @@ class Neo4jWriter(BaseGraphWriter):
 
     @staticmethod
     def _validate_update_operation(
-        update_properties: dict[str, Any] | list[dict[str, Any]] | None = None,
-        match: dict[str, Any] | list[dict[str, Any]] | None = None,
-        filter: dict[str, Any] | None = None,
+        update_properties: dict | list[dict] | None = None,
+        match: dict | list[dict] | None = None,
+        filter: FilterCondition | FilterGroup | None = None,
     ) -> None:
         checks = []
         if update_properties:
@@ -316,8 +322,8 @@ class Neo4jWriter(BaseGraphWriter):
 
     @staticmethod
     def _validate_delete_operation(
-        match: dict[str, Any] | list[dict[str, Any]] | None = None,
-        filter: dict[str, Any] | None = None,
+        match: dict | list[dict] | None = None,
+        filter: FilterCondition | FilterGroup = None,
     ) -> None:
         checks = []
         if match:
@@ -331,57 +337,80 @@ class Neo4jWriter(BaseGraphWriter):
     def _escape_identifier(name: str) -> str:
         return f"`{name.replace('`', '``')}`"
 
-    def _build_filter_conditions(self, filter: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-        conditions = []
-        params = {}
-        for key, value in filter.items():
-            if "__" in key:
-                field, operator = key.split("__", 1)
-            else:
-                field, operator = key, "eq"
+    def _build_filter_conditions(self, filter: FilterCondition | FilterGroup, alias: str = "n") -> tuple[str, dict]:
+        def process(cond: FilterCondition | FilterGroup) -> tuple[str, dict]:
+            if isinstance(cond, FilterCondition):
+                field = cond.field
+                safe_field = self._escape_identifier(field)
+                op = cond.operator
+                value = cond.value
 
-            safe_field = self._escape_identifier(field)
-            param_name = f"filter_{len(params)}"
+                param_name = f"filter_{len(params)}"
 
-            if operator == "eq":
-                conditions.append(f"n.`{safe_field}` = ${param_name}")
-            elif operator == "gt":
-                conditions.append(f"n.`{safe_field}` > ${param_name}")
-            elif operator == "lt":
-                conditions.append(f"n.`{safe_field}` < ${param_name}")
-            elif operator == "gte":
-                conditions.append(f"n.`{safe_field}` >= ${param_name}")
-            elif operator == "lte":
-                conditions.append(f"n.`{safe_field}` <= ${param_name}")
-            elif operator == "ne":
-                conditions.append(f"n.`{safe_field}` <> ${param_name}")
-            elif operator == "in":
-                if not isinstance(value, list) or not value:
-                    raise ValueError(f"IN operator requires non-empty list for field '{field}'")
-                conditions.append(f"n.`{safe_field}` IN ${param_name}")
-            elif operator == "isnull":
-                if value is True:
-                    conditions.append(f"n.`{safe_field}` IS NULL")
+                if op == Operator.EQ:
+                    return f"{alias}.`{safe_field}` = ${param_name}", {param_name: value}
+                elif op == Operator.GT:
+                    return f"{alias}.`{safe_field}` > ${param_name}", {param_name: value}
+                elif op == Operator.LT:
+                    return f"{alias}.`{safe_field}` < ${param_name}", {param_name: value}
+                elif op == Operator.GTE:
+                    return f"{alias}.`{safe_field}` >= ${param_name}", {param_name: value}
+                elif op == Operator.LTE:
+                    return f"{alias}.`{safe_field}` <= ${param_name}", {param_name: value}
+                elif op == Operator.NE:
+                    return f"{alias}.`{safe_field}` <> ${param_name}", {param_name: value}
+                elif op == Operator.IN:
+                    if not isinstance(value, list) or not value:
+                        raise ValueError(f"IN operator requires a non-empty list for field '{field}'")
+                    return f"{alias}.`{safe_field}` IN ${param_name}", {param_name: value}
+                elif op == Operator.ISNULL:
+                    if value is True:
+                        return f"{alias}.`{safe_field}` IS NULL", {}
+                    else:
+                        return f"{alias}.`{safe_field}` IS NOT NULL", {}
+                elif op == Operator.LIKE:
+                    return f"{alias}.`{safe_field}` CONTAINS ${param_name}", {param_name: value}
+                elif op == Operator.ILIKE:
+                    return f"toLower({alias}.`{safe_field}`) CONTAINS toLower(${param_name})", {param_name: value}
                 else:
-                    conditions.append(f"n.`{safe_field}` IS NOT NULL")
-                continue
-            elif operator == "like":
-                conditions.append(f"n.`{safe_field}` CONTAINS ${param_name}")
-            elif operator == "ilike":
-                conditions.append(f"toLower(n.`{safe_field}`) CONTAINS toLower(${param_name})")
+                    raise ValueError(f"Unsupported operator: {op}")
+
+            elif isinstance(cond, FilterGroup):
+                if not cond.conditions:
+                    return "", {}
+
+                sub_parts = []
+                all_params = {}
+                for sub_cond in cond.conditions:
+                    sub_str, sub_params = process(sub_cond)
+                    if sub_str:
+                        sub_parts.append(sub_str)
+                        all_params.update(sub_params)
+
+                if not sub_parts:
+                    return "", {}
+
+                if cond.operator == "AND":
+                    combined = " AND ".join(sub_parts)
+                else:  # OR
+                    combined = " OR ".join(sub_parts)
+
+                if len(sub_parts) > 1:
+                    return f"({combined})", all_params
+                else:
+                    return combined, all_params
             else:
-                raise ValueError(f"Unsupported operator '{operator}'")
+                raise TypeError(f"Unsupported condition type: {type(cond)}")
 
-            params[param_name] = value
-
-        where_clause = " AND ".join(conditions) if conditions else ""
+        params = {}
+        where_clause, params = process(filter)
         return where_clause, params
 
-    async def write_query(
+    async def execute(
         self,
         query: str,
-        params: dict[str, Any] | list[dict[str, Any]] | None = None
-    ) -> list[dict[str, Any]]:
+        params: dict | list[dict] | None = None
+    ) -> list[dict]:
         self.logger.debug(f"Executing raw write query")
         try:
             self._validate_write_query(query)
@@ -398,7 +427,7 @@ class Neo4jWriter(BaseGraphWriter):
         await self._client.close()
         self.logger.debug("Neo4jWriter client closed")
 
-    async def create_one_node(self, label: str, properties: dict[str, Any]) -> str:
+    async def create_one_node(self, label: str, properties: dict) -> str:
         self.logger.info(f"Creating one node with label '{label}'")
         self.logger.debug(
             f"label: {truncate(label, Neo4jWriter.MAX_LABEL_LENGTH)}, "
@@ -422,8 +451,8 @@ class Neo4jWriter(BaseGraphWriter):
     async def upsert_one_node(
         self,
         label: str,
-        properties: dict[str, Any],
-        conflict_properties: list[str] | None = None,
+        properties: dict,
+        conflict_properties: list[str],
     ) -> str:
         self.logger.info(f"Upserting one node with label '{label}'")
         self.logger.debug(
@@ -453,7 +482,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to upsert node with label '{label}': {e}", exc_info=True)
             raise
 
-    async def update_one_node(self, update_properties: dict[str, Any], match: dict[str, Any]) -> str:
+    async def update_one_node(self, update_properties: dict, match: dict) -> str:
         self.logger.info("Updating one node by match")
         self.logger.debug(
             f"update_properties: {truncate(str(update_properties), Neo4jWriter.MAX_PROPERTIES_LENGTH)}, "
@@ -487,7 +516,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to update node: {e}", exc_info=True)
             raise
 
-    async def delete_one_node(self, match: dict[str, Any]) -> str:
+    async def delete_one_node(self, match: dict) -> str:
         self.logger.info("Deleting one node by match")
         self.logger.debug(f"match: {truncate(str(match), Neo4jWriter.MAX_MATCH_LENGTH)}")
         try:
@@ -668,7 +697,11 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to update {len(updates)} nodes: {e}", exc_info=True)
             raise
 
-    async def update_many_nodes_by_filter(self, update_properties: dict[str, Any], filter: dict[str, Any]) -> list[str]:
+    async def update_many_nodes_by_filter(
+        self,
+        update_properties: dict,
+        filter: FilterCondition | FilterGroup,
+    ) -> list[str]:
         self.logger.info("Updating nodes by filter")
         self.logger.debug(
             f"update_properties: {truncate(str(update_properties), Neo4jWriter.MAX_PROPERTIES_LENGTH)}, "
@@ -697,7 +730,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to update nodes by filter: {e}", exc_info=True)
             raise
 
-    async def delete_many_nodes(self, match_list: list[dict[str, Any]]) -> list[str]:
+    async def delete_many_nodes(self, match_list: list[dict]) -> list[str]:
         self.logger.info(f"Deleting {len(match_list)} nodes")
         self.logger.debug(f"first match: {
             truncate(str(match_list[0]) if match_list else '', Neo4jWriter.MAX_MATCH_LENGTH)
@@ -731,7 +764,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to delete {len(match_list)} nodes: {e}", exc_info=True)
             raise
 
-    async def delete_many_nodes_by_filter(self, filter: dict[str, Any]) -> list[str]:
+    async def delete_many_nodes_by_filter(self, filter: FilterCondition | FilterGroup) -> list[str]:
         self.logger.info("Deleting nodes by filter")
         self.logger.debug(f"filter: {truncate(str(filter), Neo4jWriter.MAX_FILTER_LENGTH)}")
         try:
@@ -761,7 +794,7 @@ class Neo4jWriter(BaseGraphWriter):
         from_id: str,
         to_id: str,
         rel_type: str,
-        properties: dict[str, Any] | None = None,
+        properties: dict | None = None,
     ) -> str:
         self.logger.info(f"Creating one relationship of type '{rel_type}'")
         self.logger.debug(
@@ -806,7 +839,7 @@ class Neo4jWriter(BaseGraphWriter):
         from_id: str,
         to_id: str,
         rel_type: str,
-        properties: dict[str, Any],
+        properties: dict,
         conflict_properties: list[str],
     ) -> str:
         self.logger.info(f"Upserting one relationship of type '{rel_type}'")
@@ -849,7 +882,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to upsert relationship type '{rel_type}': {e}", exc_info=True)
             raise
 
-    async def update_one_relationship(self, update_properties: dict[str, Any], match: dict[str, Any]) -> str:
+    async def update_one_relationship(self, update_properties: dict, match: dict) -> str:
         self.logger.info("Updating one relationship by match")
         self.logger.debug(
             f"update_properties: {truncate(str(update_properties), Neo4jWriter.MAX_PROPERTIES_LENGTH)}, "
@@ -883,7 +916,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to update relationship: {e}", exc_info=True)
             raise
 
-    async def delete_one_relationship(self, match: dict[str, Any]) -> str:
+    async def delete_one_relationship(self, match: dict) -> str:
         self.logger.info("Deleting one relationship by match")
         self.logger.debug(f"match: {truncate(str(match), Neo4jWriter.MAX_MATCH_LENGTH)}")
         try:
@@ -977,7 +1010,7 @@ class Neo4jWriter(BaseGraphWriter):
     async def upsert_many_relationships(
         self,
         rels: list[RelationshipCreate],
-        conflict_properties: list[str],
+        conflict_properties: list[str]
     ) -> list[str]:
         self.logger.info(f"Upserting {len(rels)} relationships")
         rel_types = list({rel.rel_type for rel in rels})
@@ -1098,8 +1131,8 @@ class Neo4jWriter(BaseGraphWriter):
 
     async def update_many_relationships_by_filter(
         self,
-        update_properties: dict[str, Any],
-        filter: dict[str, Any],
+        update_properties: dict,
+        filter: FilterCondition | FilterGroup,
     ) -> list[str]:
         self.logger.info("Updating relationships by filter")
         self.logger.debug(
@@ -1129,7 +1162,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to update relationships by filter: {e}", exc_info=True)
             raise
 
-    async def delete_many_relationships(self, match_list: list[dict[str, Any]]) -> list[str]:
+    async def delete_many_relationships(self, match_list: list[dict]) -> list[str]:
         self.logger.info(f"Deleting {len(match_list)} relationships")
         self.logger.debug(f"first match: {
             truncate(str(match_list[0] if match_list else ''), Neo4jWriter.MAX_MATCH_LENGTH)
@@ -1163,7 +1196,7 @@ class Neo4jWriter(BaseGraphWriter):
             self.logger.error(f"Failed to delete {len(match_list)} relationships: {e}", exc_info=True)
             raise
 
-    async def delete_many_relationships_by_filter(self, filter: dict[str, Any]) -> list[str]:
+    async def delete_many_relationships_by_filter(self, filter: FilterCondition | FilterGroup) -> list[str]:
         self.logger.info("Deleting relationships by filter")
         self.logger.debug(f"filter: {truncate(str(filter), Neo4jWriter.MAX_FILTER_LENGTH)}")
         try:

@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import AsyncGenerator
 from contextlib import asynccontextmanager
+from pydantic import BaseModel
+from src.core.chunkers.base import Chunk
 
 
 class IConnection(ABC):
@@ -39,3 +41,20 @@ class ILanguageExecutor(ABC):
 class IHaveSchema(ABC):
     @abstractmethod
     async def get_schema_info(self) -> str: ...
+
+
+class SemanticSearchResult(BaseModel):
+    id: str
+    chunk: Chunk
+    score: float
+
+
+class ISemanticSearch(ABC):
+    @abstractmethod
+    async def search(
+        self,
+        query_vector: list[float],
+        top_k: int = 5,
+        filter: dict | None = None
+    ) -> list[SemanticSearchResult]:
+        ...
