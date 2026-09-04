@@ -3,11 +3,20 @@ from logging import Logger
 from typing import Any
 from functools import partial
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import tuple_, MetaData, Table, update, delete, case, text, PrimaryKeyConstraint, UniqueConstraint, or_, and_
+from sqlalchemy import tuple_, MetaData, Table, update, delete, case, text, PrimaryKeyConstraint, UniqueConstraint
 from src.data.db.sql.base import ISQLWriter, SQLUpdate
-from src.data.db.filter import FilterCondition, FilterGroup, Operator
+from src.data.db.filter import FilterCondition, FilterGroup
 from src.data.db.sql.postgres.client import PostgresAsyncClient
 from src.utils.truncate import truncate
+from src.utils.postgres_utils import convert_filter
+from src.utils.db_utils import (
+    validate_strings_exist,
+    validate_dict_exist,
+    validate_dict_contains_consistent_keys,
+    validate_all_conflict_properties_in_properties,
+    validate_match_not_contains_duplicates,
+    validate_filter_exist
+)
 
 
 class PostgresWriter(ISQLWriter):
@@ -23,43 +32,55 @@ class PostgresWriter(ISQLWriter):
         self,
         client: PostgresAsyncClient,
         logger: Logger | None = None,
-        default_schema: str = "public", **kwargs
+        default_schema: str = "public"
     ):
-        super().__init__(**kwargs)
         self._client = client
         self.logger = logger or client.logger
         self.metadata = MetaData()
         self.default_schema = default_schema
-        self._tables_cache: dict[tuple[str, str], Table] = {}     # tuple[schema, table_name]
+        self._tables_cache: dict[tuple[str, str], Table] = {}  # tuple[schema, table_name]
+
+    @staticmethod
+    def _validate_columns_exist(columns: list[str], context: str = "") -> str | None:
+        return validate_strings_exist(columns, context, PostgresWriter.MAX_VALIDATION_ERRORS, True)
+
+    @staticmethod
+    def _validate_dict_exist(data: dict | list[dict], context: str = "") -> str | None:
+        return validate_dict_exist(data, context, PostgresWriter.MAX_VALIDATION_ERRORS, True)
+
+    @staticmethod
+    def _validate_dict_contains_consistent_keys(data_list: list[dict], context: str = "") -> str | None:
+        return validate_dict_contains_consistent_keys(
+            data_list,
+            context,
+            PostgresWriter.MAX_VALIDATION_ERRORS,
+            True,
+        )
+
+    @staticmethod
+    def _validate_all_conflict_properties_in_properties(
+        properties: dict | list[dict],
+        conflict_properties: list[str]
+    ) -> str | None:
+        return validate_all_conflict_properties_in_properties(
+            properties,
+            conflict_properties,
+            PostgresWriter.MAX_VALIDATION_ERRORS,
+            True
+        )
+
+    @staticmethod
+    def _validate_match_not_contains_duplicates(match: list[dict]) -> str | None:
+        return validate_match_not_contains_duplicates(match, PostgresWriter.MAX_VALIDATION_ERRORS, True)
+
+    @staticmethod
+    def _validate_filter_exist(filter: FilterCondition | FilterGroup) -> str | None:
+        return validate_filter_exist(filter, PostgresWriter.MAX_VALIDATION_ERRORS, return_str=True)
 
     @staticmethod
     def _validate_table_has_primary_key(table: Table) -> str | None:
         if not table.primary_key.columns:
             return f"[Table '{table.name}'] Table has no primary key."
-
-    @staticmethod
-    def _validate_dict_exist(data: dict | list[dict], context: str = "") -> str | None:
-        prefix = f"[{context}] " if context else ""
-        if not data:
-            return f"{prefix}Data cannot be empty."
-        if isinstance(data, list):
-            empty_indices = []
-            for i, item in enumerate(data):
-                if not item:
-                    empty_indices.append(i)
-                    if len(empty_indices) >= PostgresWriter.MAX_VALIDATION_ERRORS:
-                        empty_indices.append("...")
-                        break
-
-            if empty_indices:
-                if len(empty_indices) == 1:
-                    return f"{prefix}Item at index {empty_indices[0]} is empty."
-                else:
-                    indices_str = ", ".join(str(i) for i in empty_indices if i != "...")
-                    msg = f"{prefix}Items at indices {indices_str} are empty."
-                    if "..." in empty_indices:
-                        msg += " (and more errors, truncated)"
-                    return msg
 
     @staticmethod
     def _validate_dict_not_contains_pk(
@@ -163,39 +184,6 @@ class PostgresWriter(ISQLWriter):
             return f"{prefix} NOT NULL validation failed:\n" + "\n".join(error_lines)
 
     @staticmethod
-    def _validate_dict_contains_consistent_keys(data_list: list[dict], context: str = "") -> str | None:
-        prefix = f"[{context}] " if context else ""
-        first_keys = set(data_list[0].keys())
-        error_lines = []
-        for i, data in enumerate(data_list[1:], start=1):
-            current_keys = set(data.keys())
-            if first_keys != current_keys:
-                missing = first_keys - current_keys
-                extra = current_keys - first_keys
-                parts = []
-                if missing:
-                    parts.append(f"missing keys: {sorted(missing)}")
-                if extra:
-                    parts.append(f"extra keys: {sorted(extra)}")
-                error_lines.append(f"[Item {i}] Inconsistent keys: " + ", ".join(parts))
-                if len(error_lines) >= PostgresWriter.MAX_VALIDATION_ERRORS:
-                    error_lines.append("... (and more errors, truncated)")
-                    break
-
-        if error_lines:
-            return (
-                f"{prefix}Inconsistent keys across dictionaries.\n"
-                f"Expected keys (from first item): {sorted(first_keys)}\n" +
-                "\n".join(error_lines)
-            )
-
-    @staticmethod
-    def _validate_columns_exist(columns: list[str], context: str = "") -> str | None:
-        prefix = f"[{context}] " if context else ""
-        if not columns:
-            return f"{prefix}Columns list cannot be empty."
-
-    @staticmethod
     def _validate_columns_in_table(table: Table, columns: str | list[str], context: str = "") -> str | None:
         prefix = f"[{context}] " if context else ""
         if isinstance(columns, str):
@@ -223,50 +211,14 @@ class PostgresWriter(ISQLWriter):
                 return f"{prefix}No UNIQUE or PRIMARY KEY constraint found for column: {columns}"
 
     @staticmethod
-    def _validate_match_not_contains_duplicates(match: list[dict]) -> str | None:
-        seen = {}
-        duplicates = []
-        for i, item in enumerate(match):
-            key = frozenset(item.items())
-            if key in seen:
-                duplicates.append(f"index {i} duplicates index {seen[key]}")
-            else:
-                seen[key] = i
-        if duplicates:
-            return f"[Match] Duplicate match conditions found: {', '.join(duplicates)}"
-
-    @staticmethod
-    def _validate_filter_exist(filter: FilterCondition | FilterGroup) -> str | None:
-        error_lines = []
-
-        def collect(cond, path: str = ""):
-            if isinstance(cond, FilterCondition):
-                if not cond.field:
-                    error_lines.append(f"{path}Field name cannot be empty")
-            elif isinstance(cond, FilterGroup):
-                if not cond.conditions:
-                    error_lines.append(f"{path}Filter group cannot be empty")
-                else:
-                    for i, sub in enumerate(cond.conditions):
-                        collect(sub, f"{path}[{i}]")
-            else:
-                error_lines.append(f"{path}Unsupported condition type: {type(cond)}")
-
-        collect(filter)
-        if error_lines:
-            return "[Filter] Filter validation errors:\n" + "\n".join(error_lines)
-
-    @staticmethod
     def _validate_filter_columns_in_table(table: Table, filter: FilterCondition | FilterGroup) -> str | None:
         error_lines = []
 
         def collect(cond, path: str = ""):
             if isinstance(cond, FilterCondition):
-                err = PostgresWriter._validate_columns_in_table(
-                    table, cond.field, context=f"{path}field"
-                )
-                if err:
-                    error_lines.append(err)
+                error = PostgresWriter._validate_columns_in_table(table, cond.field, context=f"{path}field")
+                if error:
+                    error_lines.append(error)
             elif isinstance(cond, FilterGroup):
                 for i, sub in enumerate(cond.conditions):
                     collect(sub, f"{path}[{i}]")
@@ -275,7 +227,17 @@ class PostgresWriter(ISQLWriter):
 
         collect(filter)
         if error_lines:
-            return "[Filter] Filter validation errors:\n" + "\n".join(error_lines)
+            if len(error_lines) > PostgresWriter.MAX_VALIDATION_ERRORS:
+                return (
+                    "[Filter] Filter validation errors:\n" +
+                    "\n".join(error_lines[:PostgresWriter.MAX_VALIDATION_ERRORS]) +
+                    "... (and more errors, truncated)"
+                )
+            else:
+                return (
+                    "[Filter] Filter validation errors:\n" +
+                    "\n".join(error_lines[:PostgresWriter.MAX_VALIDATION_ERRORS])
+                )
 
     @staticmethod
     def _validate_write_query(query: str) -> None:
@@ -298,28 +260,6 @@ class PostgresWriter(ISQLWriter):
             raise ValueError("Validation errors:\n" + "\n".join(error_lines))
         elif len(error_lines) == 1:
             raise ValueError(error_lines[0])
-
-    @staticmethod
-    def _validate_data_partials(table: Table, data: dict | list[dict]) -> list[partial]:
-        checks = [
-            partial(PostgresWriter._validate_dict_exist, data, "Data"),
-            partial(PostgresWriter._validate_dict_not_contains_extra_names, table, data, "Data"),
-            partial(PostgresWriter._validate_dict_contains_values_for_not_null_columns, table, data, "Data"),
-        ]
-        if isinstance(data, list):
-            checks.append(partial(PostgresWriter._validate_dict_contains_consistent_keys, data, "Data"))
-        return checks
-
-    @staticmethod
-    def _validate_update_data_partials(
-        table: Table,
-        update_data: dict | list[dict]
-    ) -> list[partial]:
-        return [
-            partial(PostgresWriter._validate_dict_exist, update_data, "Update data"),
-            partial(PostgresWriter._validate_dict_not_contains_extra_names, table, update_data, "Update data"),
-            partial(PostgresWriter._validate_dict_not_contains_pk, table, update_data, "Update data"),
-        ]
 
     @staticmethod
     def _validate_conflict_columns_partials(table: Table, conflict_columns: list[str] | None = None) -> list[partial]:
@@ -357,19 +297,35 @@ class PostgresWriter(ISQLWriter):
     @staticmethod
     def _validate_create_operation(table: Table, data: dict | list[dict]) -> None:
         checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
-        checks.extend(PostgresWriter._validate_data_partials(table, data))
+        checks.extend([
+            partial(PostgresWriter._validate_dict_exist, data, "Data"),
+            partial(PostgresWriter._validate_dict_not_contains_extra_names, table, data, "Data"),
+            partial(PostgresWriter._validate_dict_contains_values_for_not_null_columns, table, data, "Data"),
+        ])
+        if isinstance(data, list):
+            checks.append(partial(PostgresWriter._validate_dict_contains_consistent_keys, data, "Data"))
         PostgresWriter._run_validation(checks)
 
     @staticmethod
     def _validate_upsert_operation(
         table: Table,
-        data: dict | list[dict],
-        conflict_columns: list[str] | None = None,
+        upsert_data: dict | list[dict],
+        conflict_columns: list[str],
     ) -> None:
-        checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
-        checks.extend(PostgresWriter._validate_data_partials(table, data))
-        if conflict_columns:
-            checks.extend(PostgresWriter._validate_conflict_columns_partials(table, conflict_columns))
+        checks = [
+            partial(PostgresWriter._validate_table_has_primary_key, table),
+            partial(PostgresWriter._validate_dict_exist, upsert_data, "Upsert data"),
+            partial(PostgresWriter._validate_dict_not_contains_extra_names, table, upsert_data, "Upsert data"),
+            partial(
+                PostgresWriter._validate_dict_contains_values_for_not_null_columns,
+                table, upsert_data,
+                "Upsert data"
+            ),
+            partial(PostgresWriter._validate_all_conflict_properties_in_properties, upsert_data, conflict_columns)
+        ]
+        if isinstance(upsert_data, list):
+            checks.append(partial(PostgresWriter._validate_dict_contains_consistent_keys, upsert_data, "Upsert data"))
+        checks.extend(PostgresWriter._validate_conflict_columns_partials(table, conflict_columns))
         PostgresWriter._run_validation(checks)
 
     @staticmethod
@@ -379,8 +335,12 @@ class PostgresWriter(ISQLWriter):
         match: dict | list[dict] | None = None,
         filter: FilterCondition | FilterGroup | None = None,
     ) -> None:
-        checks = [partial(PostgresWriter._validate_table_has_primary_key, table)]
-        checks.extend(PostgresWriter._validate_update_data_partials(table, update_data))
+        checks = [
+            partial(PostgresWriter._validate_table_has_primary_key, table),
+            partial(PostgresWriter._validate_dict_exist, update_data, "Update data"),
+            partial(PostgresWriter._validate_dict_not_contains_extra_names, table, update_data, "Update data"),
+            partial(PostgresWriter._validate_dict_not_contains_pk, table, update_data, "Update data"),
+        ]
         if match:
             checks.extend(PostgresWriter._validate_match_partials(table, match))
         if filter:
@@ -399,53 +359,6 @@ class PostgresWriter(ISQLWriter):
         if filter:
             checks.extend(PostgresWriter._validate_filter_partials(table, filter))
         PostgresWriter._run_validation(checks)
-
-    @staticmethod
-    def _build_where_conditions(table: Table, filter: FilterCondition | FilterGroup) -> Any:
-        def process(cond: FilterCondition | FilterGroup):
-            if isinstance(cond, FilterCondition):
-                column = table.c.get(cond.field)
-                if column is None:
-                    raise ValueError(f"Column '{cond.field}' not found in table '{table.name}'")
-                op = cond.operator
-                value = cond.value
-                if op == Operator.EQ:
-                    return column == value
-                elif op == Operator.GT:
-                    return column > value
-                elif op == Operator.LT:
-                    return column < value
-                elif op == Operator.GTE:
-                    return column >= value
-                elif op == Operator.LTE:
-                    return column <= value
-                elif op == Operator.NE:
-                    return column != value
-                elif op == Operator.IN:
-                    if not isinstance(value, list) or not value:
-                        raise ValueError("IN operator requires a non-empty list")
-                    return column.in_(value)
-                elif op == Operator.ISNULL:
-                    return column.is_(None) if value is True else column.isnot(None)
-                elif op == Operator.LIKE:
-                    return column.like(value)
-                elif op == Operator.ILIKE:
-                    return column.ilike(value)
-                else:
-                    raise ValueError(f"Unsupported operator: {op}")
-
-            elif isinstance(cond, FilterGroup):
-                if not cond.conditions:
-                    return True
-                sub_conditions = [process(c) for c in cond.conditions]
-                if cond.operator == "AND":
-                    return and_(*sub_conditions)
-                else:
-                    return or_(*sub_conditions)
-            else:
-                raise TypeError(f"Unsupported condition type: {type(cond)}")
-
-        return process(filter)
 
     async def _get_table(self, table_name: str, schema: str | None = None) -> Table:
         schema = schema or self.default_schema
@@ -483,7 +396,7 @@ class PostgresWriter(ISQLWriter):
     async def create_one(self, table_name: str, data: dict, schema: str | None = None) -> dict:
         self.logger.info(f"Creating one record in table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"data: {truncate(str(data), PostgresWriter.MAX_DATA_LENGTH)}"
         )
 
@@ -520,9 +433,9 @@ class PostgresWriter(ISQLWriter):
     ) -> dict:
         self.logger.info(f"Upserting one record in table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"data: {truncate(str(data), PostgresWriter.MAX_DATA_LENGTH)}, "
-            f"conflict_columns: {truncate(str(conflict_columns), PostgresWriter.MAX_CONFLICT_COLUMNS_LENGTH)}"
+            f"conflict columns: {truncate(str(conflict_columns), PostgresWriter.MAX_CONFLICT_COLUMNS_LENGTH)}"
         )
 
         try:
@@ -556,8 +469,8 @@ class PostgresWriter(ISQLWriter):
     async def update_one(self,  table_name: str, update_data: dict, match: dict, schema: str | None = None) -> dict:
         self.logger.info(f"Updating one record in table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
-            f"update_data: {truncate(str(update_data), PostgresWriter.MAX_DATA_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"update data: {truncate(str(update_data), PostgresWriter.MAX_DATA_LENGTH)}, "
             f"match: '{truncate(str(match), PostgresWriter.MAX_MATCH_LENGTH)}'"
         )
 
@@ -590,7 +503,7 @@ class PostgresWriter(ISQLWriter):
     async def delete_one(self, table_name: str, match: dict, schema: str | None = None) -> dict:
         self.logger.info(f"Deleting one record from table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"match: '{truncate(str(match), PostgresWriter.MAX_MATCH_LENGTH)}'"
         )
 
@@ -622,7 +535,7 @@ class PostgresWriter(ISQLWriter):
     async def create_many(self, table_name: str, data_list: list[dict], schema: str | None = None) -> list[Any]:
         self.logger.info(f"Creating {len(data_list)} records in table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"first item: {truncate(str(data_list[0]), PostgresWriter.MAX_DATA_LENGTH) if data_list else None}"
         )
 
@@ -662,9 +575,9 @@ class PostgresWriter(ISQLWriter):
     ) -> list[dict]:
         self.logger.info(f"Upserting {len(data_list)} records in table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"first item: {truncate(str(data_list[0]), PostgresWriter.MAX_DATA_LENGTH) if data_list else None}, "
-            f"conflict_columns: {truncate(str(conflict_columns), PostgresWriter.MAX_CONFLICT_COLUMNS_LENGTH)}"
+            f"conflict columns: {truncate(str(conflict_columns), PostgresWriter.MAX_CONFLICT_COLUMNS_LENGTH)}"
         )
 
         try:
@@ -701,7 +614,7 @@ class PostgresWriter(ISQLWriter):
     async def update_many(self, table_name: str, updates: list[SQLUpdate], schema: str | None = None) -> list[dict]:
         self.logger.info(f"Updating {len(updates)} records in table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"first update data: {
                 truncate(str(updates[0].update_data), PostgresWriter.MAX_DATA_LENGTH) if updates else None
             }, "
@@ -765,8 +678,8 @@ class PostgresWriter(ISQLWriter):
     ) -> list[dict]:
         self.logger.info(f"Updating records in table '{table_name}' by filter")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
-            f"update_data: {truncate(str(update_data), PostgresWriter.MAX_DATA_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"update data: {truncate(str(update_data), PostgresWriter.MAX_DATA_LENGTH)}, "
             f"filter: {truncate(str(filter), PostgresWriter.MAX_FILTER_LENGTH)}"
         )
 
@@ -775,7 +688,7 @@ class PostgresWriter(ISQLWriter):
             self._validate_update_operation(table, update_data, filter=filter)
 
             pk_columns = list(table.primary_key.columns)
-            conditions = self._build_where_conditions(table, filter)
+            conditions = convert_filter(table, filter)
             stmt = (
                 update(table)
                 .where(conditions)
@@ -802,7 +715,7 @@ class PostgresWriter(ISQLWriter):
     async def delete_many(self, table_name: str, match_list: list[dict], schema: str | None = None) -> list[dict]:
         self.logger.info(f"Deleting {len(match_list)} records from table '{table_name}'")
         self.logger.debug(
-            f"table_name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
+            f"table name: {truncate(table_name, PostgresWriter.MAX_TABLE_NAME_LENGTH)}, "
             f"first match item='{truncate(str(match_list[0]), PostgresWriter.MAX_MATCH_LENGTH) 
             if match_list else None}'"
         )
@@ -855,7 +768,7 @@ class PostgresWriter(ISQLWriter):
             self._validate_delete_operation(table, filter=filter)
 
             pk_columns = list(table.primary_key.columns)
-            conditions = self._build_where_conditions(table, filter)
+            conditions = convert_filter(table, filter)
             stmt = (
                 delete(table)
                 .where(conditions)
@@ -877,6 +790,24 @@ class PostgresWriter(ISQLWriter):
         except Exception as e:
             self.logger.error(f"Failed to delete records by filter from '{table_name}': {e}", exc_info=True)
             raise
+
+    async def connect(self) -> None:
+        await self._client.connect()
+
+    async def close(self) -> None:
+        await self._client.close()
+
+    async def ping(self) -> bool:
+        return await self._client.ping()
+
+    async def begin_transaction(self) -> None:
+        await self._client.begin_transaction()
+
+    async def commit_transaction(self) -> None:
+        await self._client.commit_transaction()
+
+    async def rollback_transaction(self) -> None:
+        await self._client.rollback_transaction()
 
     def table_cache_clear(self) -> None:
         self._tables_cache.clear()

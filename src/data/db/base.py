@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from src.core.chunkers.base import Chunk
+from src.data.db.filter import FilterCondition, FilterGroup
 
 
 class IConnection(ABC):
@@ -55,6 +56,6 @@ class ISemanticSearch(ABC):
         self,
         query_vector: list[float],
         top_k: int = 5,
-        filter: dict | None = None
+        filter: FilterCondition | FilterGroup | None = None
     ) -> list[SemanticSearchResult]:
         ...

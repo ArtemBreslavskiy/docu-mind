@@ -35,8 +35,8 @@ class FAISSAdapter(
             self.reader._load()
         values = set()
         for chunk in self.reader.chunks:
-            if chunk.metadata and field in chunk.metadata:
-                values.add(chunk.metadata[field])
+            if chunk.update_metadata and field in chunk.update_metadata:
+                values.add(chunk.update_metadata[field])
         return list(values)[:limit]
 
     async def count_records(self, table: str = "", filter: dict | None = None) -> int:
@@ -46,7 +46,7 @@ class FAISSAdapter(
         for chunk in self.reader.chunks:
             match = True
             for k, v in filter.items():
-                if chunk.metadata.get(k) != v:
+                if chunk.update_metadata.get(k) != v:
                     match = False
                     break
             if match:

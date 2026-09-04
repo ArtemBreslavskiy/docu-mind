@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from pydantic import BaseModel
-from src.data.db.base import ILanguageExecutor, IHaveSchema
-from src.data.db.filter import FilterCondition, FilterGroup, Operator
+from src.data.db.base import IConnection, ITransactional, ILanguageExecutor, IHaveSchema
+from src.data.db.filter import FilterCondition, FilterGroup
 
 
 class NodeCreate(BaseModel):
@@ -26,11 +26,11 @@ class RelationshipUpdate(BaseModel):
     update_properties: dict
 
 
-class BaseGraphReader(ILanguageExecutor, IHaveSchema):
+class IGraphReader(IConnection, ITransactional, ILanguageExecutor, IHaveSchema):
     ...
 
 
-class BaseGraphWriter(ILanguageExecutor):
+class IGraphWriter(IConnection, ITransactional, ILanguageExecutor):
     @abstractmethod
     async def create_one_node(self, label: str, properties: dict) -> str: ...
     @abstractmethod

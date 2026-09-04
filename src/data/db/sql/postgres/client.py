@@ -18,7 +18,6 @@ class PostgresAsyncClient(IConnection, ITransactional):
         url: str | None = None,
         engine: AsyncEngine | None = None,
         logger: Logger | None = None,
-        **kwargs
     ):
         self.logger = logger if logger else get_null_logger()
         if url is None and engine is None:
@@ -30,7 +29,6 @@ class PostgresAsyncClient(IConnection, ITransactional):
             self.logger.error("Provide either 'url' or 'engine', not both.")
             raise ValueError(msg)
 
-        super().__init__(**kwargs)
         if engine is not None:
             self.engine = engine
             self._owns_engine = False

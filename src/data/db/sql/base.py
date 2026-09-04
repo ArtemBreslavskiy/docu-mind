@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Any
 from pydantic import BaseModel
-from src.data.db.base import ILanguageExecutor, IHaveSchema
+from src.data.db.base import IConnection, ITransactional, ILanguageExecutor, IHaveSchema
 from src.data.db.filter import FilterCondition, FilterGroup
 
 
@@ -10,11 +10,11 @@ class SQLUpdate(BaseModel):
     update_data: dict
 
 
-class ISQLReader(ILanguageExecutor, IHaveSchema):
+class ISQLReader(IConnection, ITransactional, ILanguageExecutor, IHaveSchema):
     pass
 
 
-class ISQLWriter(ILanguageExecutor):
+class ISQLWriter(IConnection, ITransactional, ILanguageExecutor):
     @abstractmethod
     async def create_one(self, table_name: str, data: dict) -> dict: ...
     @abstractmethod

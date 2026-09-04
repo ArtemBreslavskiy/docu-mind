@@ -10,8 +10,7 @@ from src.data.db.sql.postgres.client import PostgresAsyncClient
 class PostgresReader(ISQLReader):
     READ_TYPES = {"SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN"}
 
-    def __init__(self, client: PostgresAsyncClient, logger: Logger | None = None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, client: PostgresAsyncClient, logger: Logger | None = None):
         self._client = client
         self.logger = logger or client.logger
 
@@ -81,3 +80,21 @@ class PostgresReader(ISQLReader):
         except Exception as e:
             self.logger.error(f"Failed to get schema info: {e}", exc_info=True)
             raise
+
+    async def connect(self) -> None:
+        await self._client.connect()
+
+    async def close(self) -> None:
+        await self._client.close()
+
+    async def ping(self) -> bool:
+        return await self._client.ping()
+
+    async def begin_transaction(self) -> None:
+        await self._client.begin_transaction()
+
+    async def commit_transaction(self) -> None:
+        await self._client.commit_transaction()
+
+    async def rollback_transaction(self) -> None:
+        await self._client.rollback_transaction()

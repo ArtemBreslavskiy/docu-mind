@@ -1,12 +1,11 @@
 from logging import Logger
-from typing import Any
 from antlr4 import InputStream, CommonTokenStream
 from antlr4_cypher import CypherLexer, CypherParser
-from data.db.nosql.graph.base import BaseGraphReader
+from data.db.nosql.graph.base import IGraphReader
 from data.db.nosql.graph.neo4j.client import Neo4jAsyncClient
 
 
-class Neo4jReader(BaseGraphReader):
+class Neo4jReader(IGraphReader):
     READ_RULE_NAMES = {
         "script",
         "statement",
@@ -50,7 +49,7 @@ class Neo4jReader(BaseGraphReader):
         tree = parser.script()
         walk(tree)
 
-    async def read_query(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    async def execute(self, query: str, params: dict | None = None) -> list[dict]:
         self.logger.debug(f"Executing read query")
         try:
             self._validate_read_query(query)
@@ -85,7 +84,20 @@ class Neo4jReader(BaseGraphReader):
         ]
         return "\n".join(lines)
 
+    async def connect(self) -> None:
+        await self._client.connect()
+
     async def close(self) -> None:
-        self.logger.debug("Closing Neo4jReader client")
         await self._client.close()
-        self.logger.debug("Neo4jReader client closed")
+
+    async def ping(self) -> bool:
+        return await self._client.ping()
+
+    async def begin_transaction(self) -> None:
+        await self._client.begin_transaction()
+
+    async def commit_transaction(self) -> None:
+        await self._client.commit_transaction()
+
+    async def rollback_transaction(self) -> None:
+        await self._client.rollback_transaction()

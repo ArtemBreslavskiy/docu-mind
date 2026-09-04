@@ -1,4 +1,3 @@
-from typing import Any
 from logging import Logger
 from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession, AsyncTransaction, Query
 from src.data.db.base import IConnection, ITransactional
