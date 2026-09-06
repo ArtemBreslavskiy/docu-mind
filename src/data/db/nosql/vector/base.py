@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pydantic import BaseModel
-from data.db.base import IConnection, ISemanticSearch
+from data.db.base import IConnection, ISemanticSearch, IHaveSchema
 from src.data.db.filter import FilterCondition, FilterGroup
 
 
@@ -15,7 +15,7 @@ class VectorUpdate(BaseModel):
     update_metadata: dict | None
 
 
-class IVectorReader(IConnection, ISemanticSearch):
+class IVectorReader(IConnection, ISemanticSearch, IHaveSchema):
     pass
 
 

@@ -1,3 +1,4 @@
+import asyncio
 from logging import Logger
 from src.core.chunkers.base import Chunk
 from src.data.db.base import SemanticSearchResult
@@ -58,6 +59,24 @@ class QdrantReader(IVectorReader):
 
         self.logger.debug(f"Found {len(results)} results")
         return results
+
+    async def get_schema_info(self) -> str:
+        try:
+            collection_info = await asyncio.to_thread(
+                self._client.engine.get_collection, self.collection_name
+            )
+            status = collection_info.status
+            vectors_count = collection_info.vectors_count
+            points_count = collection_info.points_count
+            vector_size = collection_info.config.params.vectors.size if collection_info.config.params.vectors else "unknown"
+            return (
+                f"Qdrant collection: name='{self.collection_name}', "
+                f"status={status}, points_count={points_count}, "
+                f"vectors_count={vectors_count}, vector_size={vector_size}"
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to get schema info: {e}")
+            return f"Error getting schema info for collection '{self.collection_name}': {e}"
 
     async def connect(self) -> None:
         await self._client.connect()
